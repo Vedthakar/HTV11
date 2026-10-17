@@ -1,6 +1,6 @@
 # HTV Rover — iPhone LiDAR to an explorable 3D capture
 
-Local starter project for an iPhone 17 Pro mounted on a robot car. Capture RGB, LiDAR depth/confidence and ARKit camera poses, upload to this Mac, build geometry, then train and view Gaussian splats. No Spark project code is copied; the architecture is inspired by it. This project uses Apple's frameworks, Three.js, SparkJS, and Brush directly.
+Local starter project for an iPhone 17 Pro mounted on a robot car. Capture RGB, LiDAR depth/confidence and ARKit camera poses, upload to this Mac, build geometry, then train and view Gaussian splats. This project uses Apple's frameworks, Three.js, SparkJS, and Brush directly.
 
 ## Start on the laptop
 
@@ -9,14 +9,14 @@ Dependencies are installed in `.venv/` and `web/node_modules/`. Apple Silicon Br
 Terminal 1:
 
 ```bash
-cd /Users/maggiewu/HTV
+cd /Users/.../HTV
 npm run backend
 ```
 
 Terminal 2:
 
 ```bash
-cd /Users/maggiewu/HTV
+cd /Users/.../HTV
 npm run dev
 ```
 
@@ -106,8 +106,6 @@ npm --prefix web ci --cache "$PWD/.npm-cache"
 Brush is optional for point clouds. The installed release's `--help` is saved in `tools/brush-help.txt`. Set `BRUSH_BIN` to use a different executable. Training progress/errors are in `data/sessions/<id>/train.log`; the server marks failures instead of displaying synthetic content as success.
 
 ## References
-
-- Spark rover reference: https://github.com/sai3000pro/spark
 - Brush: https://github.com/ArthurBrussee/brush (Apache-2.0; bundled release notices under tools/brush/)
 - SparkJS renderer: https://sparkjs.dev/docs/
 - ARKit: https://developer.apple.com/documentation/arkit
