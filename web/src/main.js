@@ -7,6 +7,7 @@ import {createPins} from './pins.js';
 import {createObservations} from './observations.js';
 import {createHouseDesigner} from './house.js';
 import {createReplacement} from './replacement.js';
+import {createLive} from './live.js';
 
 const $=s=>document.querySelector(s),viewport=$('#viewport');
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
@@ -19,6 +20,35 @@ scene.add(new SparkRenderer({renderer}));
 let content=null,selected=null,selectedSession=null,requestVersion=0,currentBounds=null;
 let lastSessionSignature='';
 let replacement=null;
+let pendingImport=null;
+const SOURCE_LABEL={lota:'LOTA',rover:'RoverCapture'};
+
+// Rover/camera path from trajectory.json: a line plus start (green) and end (amber) markers.
+const path=new THREE.Group();path.renderOrder=2;scene.add(path);
+function clearPath(){
+  for(const child of [...path.children]){path.remove(child);child.geometry.dispose();child.material.dispose();}
+  $('#show-path').disabled=true;
+}
+async function loadPath(url){
+  clearPath();if(!url)return;
+  try{
+    const points=(await (await fetch(url)).json()).map(p=>new THREE.Vector3(...p));
+    if(points.length<2)return;
+    path.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:0xf2b84b,depthTest:false,transparent:true})));
+    for(const [point,color] of [[points[0],0x8fd694],[points.at(-1),0xf2b84b]]){
+      const marker=new THREE.Mesh(new THREE.SphereGeometry(.05,16,12),new THREE.MeshBasicMaterial({color,depthTest:false,transparent:true}));
+      marker.position.copy(point);path.add(marker);
+    }
+    $('#show-path').disabled=false;path.visible=$('#show-path').checked;
+  }catch{/* The scan is still usable without its path. */}
+}
+$('#show-path').onchange=e=>{path.visible=e.target.checked;};
+function sessionInfo(s){
+  const box=$('#session-info');box.replaceChildren();
+  const lines=[...(s?.warnings||[])];
+  if(s?.source==='lota')lines.unshift(`LOTA ${s.format||'export'} · ${s.frames??0} frames · ${(s.points??0).toLocaleString()} points${s.dropped_frames?` · ${s.dropped_frames} jolt frame(s) removed`:''}`);
+  for(const line of lines){const p=document.createElement('p');p.textContent=line;box.append(p);}
+}
 function notice(message){$('#notice').textContent=message;}
 const pins=createPins({scene,camera,canvas:renderer.domElement,controls,
   onPlace:position=>observations.place(position),onSelect:id=>observations.open(id),isVisible:point=>replacement?.isVisible(point)??true,isBlocked:()=>designer.editing});
@@ -31,7 +61,10 @@ function fit(houseOnly=false){
   const houseBounds=designer.bounds();
   let bounds=houseOnly&&houseBounds?houseBounds:currentBounds?.clone();
   if(!houseOnly&&houseBounds)bounds=bounds?bounds.union(houseBounds):houseBounds;
-  if(!bounds)return;
+  fitBox(bounds);
+}
+function fitBox(bounds){
+  if(!bounds||bounds.isEmpty())return;
   const center=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3()).length();
   controls.target.copy(center);
   const vertical=THREE.MathUtils.degToRad(camera.fov/2);
@@ -40,6 +73,7 @@ function fit(houseOnly=false){
   camera.position.copy(center).add(new THREE.Vector3(1,.65,1).normalize().multiplyScalar(distance));
   camera.near=Math.max(size/10000,.005);camera.far=Math.max(size*30,100);camera.updateProjectionMatrix();controls.update();
 }
+createLive({scene,notice,fitBox});
 function dispose(obj){
   if(!obj)return;
   if(obj.isSplatMesh)obj.dispose();else{obj.geometry?.dispose();obj.material?.dispose();}
@@ -73,7 +107,7 @@ $('#add-observation').addEventListener('click',()=>designer.stopEditing(),true);
 for(const kind of ['cloud','splat'])$('#'+kind).onchange=async e=>{
   const file=e.target.files[0];if(!file)return;
   ++requestVersion;clear();selected=null;selectedSession=null;
-  $('#prepare').disabled=true;$('#train').disabled=true;
+  $('#prepare').disabled=true;$('#train').disabled=true;clearPath();sessionInfo(null);
   await observations.activate(null);
   const url=URL.createObjectURL(file);await load(url,kind,false,file.name);URL.revokeObjectURL(url);e.target.value='';
   notice('Local file loaded. Select a saved session to create persistent observations.');
@@ -82,11 +116,15 @@ for(const kind of ['cloud','splat'])$('#'+kind).onchange=async e=>{
 async function selectSession(s,health){
   ++requestVersion;clear();selected=s.id;selectedSession=s;
   $('#empty').hidden=designer.visible;$('#mode').textContent='LOADING SESSION';
-  $('#prepare').disabled=false;$('#train').disabled=!health.brush;
+  const imported=s.source==='lota';
+  $('#prepare').hidden=imported;$('#prepare').disabled=false;
+  $('#train').disabled=!health.brush||s.trainable===false;
+  sessionInfo(s);
   const notes=observations.activate(s);
   if(s.splat_url)await load(s.splat_url,'splat',s.demo);
   else if(s.cloud_url)await load(s.cloud_url,'cloud',s.demo);
-  else notice('Prepare geometry to load this capture and place observations.');
+  else notice(imported?`Import ${s.status}. It opens automatically when ready.`:'Prepare geometry to load this capture and place observations.');
+  if(selected===s.id)await loadPath(s.trajectory_url);
   await notes;
   if(selected!==s.id)return;
   if(s.error)notice(s.error);
@@ -98,14 +136,22 @@ async function refresh(){
     const health=await h.json();$('#health').textContent=health.brush?'LAPTOP ONLINE · BRUSH INSTALLED':'LAPTOP ONLINE · BRUSH NOT INSTALLED';
     const r=await fetch('/api/sessions');if(!r.ok)throw Error('Session list unavailable');
     const sessions=await r.json();
+    const finished=pendingImport&&sessions.find(s=>s.id===pendingImport&&['prepared','failed'].includes(s.status));
+    if(finished){
+      pendingImport=null;
+      if(finished.status==='failed')notice(`Import failed: ${finished.error}`);else{notice('Import finished.');selectSession(finished,health);return;}
+    }
     // Do not replace buttons every poll: preserve focus, and never reset an open note.
     const signature=JSON.stringify({sessions,selected});
     if(signature===lastSessionSignature)return;lastSessionSignature=signature;
     $('#sessions').replaceChildren();
-    if(!sessions.length){const p=document.createElement('p');p.className='muted';p.textContent='No captures yet. Upload from your iPhone.';$('#sessions').append(p);}
+    if(!sessions.length){const p=document.createElement('p');p.className='muted';p.textContent='No captures yet. Import a LOTA capture below.';$('#sessions').append(p);}
     for(const s of sessions){
-      const button=document.createElement('button');button.className='session'+(selected===s.id?' selected':'');button.textContent=new Date(s.created_at*1000).toLocaleString();
-      const detail=document.createElement('span');detail.textContent=`${s.frames} frames · ${s.status}${s.demo?' · SYNTHETIC TEST CAPTURE':''}`;button.append(detail);
+      const button=document.createElement('button');button.className='session'+(selected===s.id?' selected':'');
+      button.textContent=s.name||new Date(s.created_at*1000).toLocaleString();
+      const detail=document.createElement('span');
+      detail.textContent=[SOURCE_LABEL[s.source||'rover'],s.name?new Date(s.created_at*1000).toLocaleString():null,`${s.frames??0} frames`,s.status,s.demo?'SYNTHETIC TEST CAPTURE':null].filter(Boolean).join(' · ');
+      button.append(detail);
       button.onclick=()=>selectSession(s,health);$('#sessions').append(button);
       if(selected===s.id){selectedSession=s;$('#show-cloud').disabled=!s.cloud_url;}
     }
@@ -119,4 +165,26 @@ for(const action of ['prepare','train'])$('#'+action).onclick=async()=>{
     notice('Queued. Status updates automatically; select the session again when complete to load the result.');await refresh();
   }catch(e){notice(e.message);}
 };
+// LOTA ZIP import: XHR rather than fetch so upload progress can be shown.
+function importZip(file){
+  if(!file)return;
+  if(!/\.zip$/i.test(file.name)){notice('Choose the LOTA_*.zip exported from the app.');return;}
+  const xhr=new XMLHttpRequest(),bar=$('#import-progress');
+  xhr.open('POST','/api/sessions/import');
+  xhr.setRequestHeader('X-Capture-Token',$('#token').value);xhr.setRequestHeader('X-Filename',file.name);
+  xhr.upload.onprogress=e=>{if(e.lengthComputable){bar.value=e.loaded/e.total;notice(`Uploading ${file.name}: ${Math.round(100*e.loaded/e.total)}%`);}};
+  xhr.onload=()=>{
+    bar.hidden=true;let body={};try{body=JSON.parse(xhr.responseText);}catch{}
+    if(xhr.status>=300){notice(`Import failed: ${body.detail||xhr.statusText}`);return;}
+    pendingImport=body.id;notice('Uploaded. Building the map…');lastSessionSignature='';refresh();
+  };
+  xhr.onerror=()=>{bar.hidden=true;notice('Upload failed. Is the backend running?');};
+  bar.value=0;bar.hidden=false;xhr.send(file);
+}
+$('#import').onchange=e=>{importZip(e.target.files[0]);e.target.value='';};
+let dragDepth=0;
+addEventListener('dragenter',e=>{if(e.dataTransfer?.types.includes('Files')){dragDepth++;document.body.classList.add('dropping');}});
+addEventListener('dragleave',()=>{if(--dragDepth<=0){dragDepth=0;document.body.classList.remove('dropping');}});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{e.preventDefault();dragDepth=0;document.body.classList.remove('dropping');importZip(e.dataTransfer.files[0]);});
 $('#refresh').onclick=refresh;observations.activate(null);refresh();setInterval(refresh,4000);

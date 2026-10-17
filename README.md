@@ -2,40 +2,58 @@
 
 Local starter project for an iPhone 17 Pro mounted on a robot car. Capture RGB, LiDAR depth/confidence and ARKit camera poses, upload to this Mac, build geometry, then train and view Gaussian splats. This project uses Apple's frameworks, Three.js, SparkJS, and Brush directly.
 
-## Start on the laptop
+## Start on the laptop (Windows or macOS)
 
-Dependencies are installed in `.venv/` and `web/node_modules/`. Apple Silicon Brush v0.3.0 is installed at `tools/brush_app` from its official release, with the archive checksum verified.
-
-Terminal 1:
+One-time setup (needs Python 3.12+ and Node 22+):
 
 ```bash
-cd /Users/.../HTV
-npm run backend
+npm run setup                                  # .venv + backend packages + web packages
+node scripts/py.mjs scripts/install_brush.py   # optional: Gaussian splat training
 ```
 
-Terminal 2:
+`scripts/py.mjs` runs the venv's Python on either OS, so every npm script works on Windows and macOS.
+Brush is pinned per OS: 0.2.0 on Windows (v0.3.0 fails every dataset load there with "IO error ... early eof"), v0.3.0 on macOS/Linux. Training is GPU-bound: 1,500 steps on a small synthetic set took ~48 min on Intel Iris Xe, so prefer a discrete GPU or Apple Silicon for real captures.
 
-```bash
-cd /Users/.../HTV
-npm run dev
-```
+Terminal 1: `npm run backend` (or `npm run backend:lan` for the live stream; see below)
+Terminal 2: `npm run dev`
 
 Open **http://127.0.0.1:5175**. Backend: http://127.0.0.1:8008/docs.
 
-### Accept uploads from the iPhone
+## Scan with LOTA (recommended capture path)
+
+LOTA (LiDAR Over the Air) replaces the custom RoverCapture app. Settings for a rover-mounted phone:
+
+1. Camera page → Point Cloud mode → **Point Cloud Settings**: Min Confidence **High Only**, Max Depth **3–4 m**.
+2. Swipe right to the capture page, choose **N + Depth** (Nerfstudio + Depth; COLMAP also works), Capture Settings → Capture Rate **30 Hz**.
+3. Folder icon (bottom left) → pick an iCloud Files folder. Record while driving slowly (~0.2–0.3 m/s, stop before turns). LOTA rejects motion-blurred frames and only keeps keyframes after 5 cm / 5° of motion.
+4. Get the `LOTA_<timestamp>_<MODE>.zip` to the laptop and either click **Import LOTA capture**, drop it on the page, or watch the synced folder:
+
+```bash
+npm run watch -- "C:\Users\<you>\iCloudDrive\<folder>"
+```
+
+The importer (`backend/lota.py`) accepts Nerfstudio, Nerfstudio + Depth, COLMAP binary and PLY-only exports. It drops single-frame pose spikes (rover jolts), warns about permanent path jumps (tracking relocalised), removes isolated floaters, thins the cloud to 1 cm and caps it at 200,000 points for the viewer. The dataset is kept as exported so **Train Gaussian splat** can use it; PLY-only exports cannot be trained. If a real export shows up rotated (Z-up), restart the backend with `HTV_LOTA_UP=z` (this rotates the point cloud and path only; a trained splat stays in the export's axes). ZIP uploads are capped at 4 GB (`HTV_IMPORT_MAX_MB`).
+
+Without a phone: `npm run fixtures` writes clearly marked SYNTHETIC LOTA-style ZIPs to `data/lota_fixtures/`.
+
+### Live preview while driving (optional)
+
+Start `npm run backend:lan`, enable **Show live point stream**, and in LOTA send the PLY point stream to `<laptop IP>`:**9848** (TCP) and OSC to **9000** (UDP). Allow both ports (and 8008) through the firewall. If LOTA only connects out to a receiver it discovers, set `HTV_LOTA_PHONE=<phone IP>:9848` to have the laptop dial the phone instead. Whether LOTA streams world- or camera-space points is undocumented: if the cloud smears when the rover turns, choose **Camera coordinates (apply pose)**. Frames are thinned to 10 fps / 8,000 points. Anyone on the network can send to these ports, so use a trusted network. This is a preview; the imported ZIP is the map. Test without a phone: `npm run simulate-live` (add `-- --space camera` for the other mode).
+
+## Legacy: RoverCapture uploads from the iPhone
 
 Stop the loopback backend first. In the same terminal:
 
 ```bash
-export HTV_CAPTURE_TOKEN="choose-a-team-token"
+export HTV_CAPTURE_TOKEN="choose-a-team-token"   # PowerShell: $env:HTV_CAPTURE_TOKEN="..."
 npm run backend:lan
 ```
 
 This deliberately listens on the local network on port 8008. Enter the same token in the iPhone app and the web viewer. Keep this development server on a trusted local network; don't port-forward it or expose it publicly. Upload/processing require the token when configured; read endpoints are intended for trusted teammates. HTTP is unencrypted and intended only for local development.
 
-Find the Mac's Wi-Fi address in System Settings → Wi-Fi → Details → TCP/IP, or `ipconfig getifaddr en0`. Phone and Mac must be on the same network. Some hackathon networks isolate clients; use a network that permits device-to-device connections. Allow the macOS firewall prompt if it appears.
+Phone and laptop must be on the same network. Some hackathon networks isolate clients; use a network that permits device-to-device connections.
 
-## Install the iPhone app
+## Install the RoverCapture iPhone app (legacy, macOS + Xcode only)
 
 1. Open `ios/RoverCapture.xcodeproj` in Xcode.
 2. Select the RoverCapture target → Signing & Capabilities → your development team. If needed, change the bundle identifier to one unique to your team.

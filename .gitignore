@@ -9,6 +9,7 @@ web/dist/
 data/sessions/*
 !data/sessions/.gitkeep
 tools/brush_app
+tools/brush_app.exe
 tools/brush.tar.xz
 .env
 .DS_Store
@@ -19,3 +20,5 @@ xcuserdata/
 target/
 .env.*
 !.env.example
+data/lota_fixtures/
+data/lota_watch.json

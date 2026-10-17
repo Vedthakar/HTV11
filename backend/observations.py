@@ -11,6 +11,21 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 ReviewStatus = Literal['unreviewed', 'confirmed', 'dismissed']
+FRAME_NAME = re.compile(r'frame_\d{6}\.jpg')
+IMPORTED_NAME = re.compile(r'[\w.-]{1,128}\.(jpe?g|png)', re.IGNORECASE)
+
+
+def photo_dir(p):
+    """RoverCapture keeps frames in the session folder; LOTA imports keep them in dataset/images."""
+    session = p / 'session.json'
+    imported = session.exists() and json.loads(session.read_text()).get('source') == 'lota'
+    return (p / 'dataset' / 'images', IMPORTED_NAME) if imported else (p, FRAME_NAME)
+
+
+def photo_path(p, name):
+    folder, pattern = photo_dir(p)
+    path = folder / name
+    return path if pattern.fullmatch(name) and path.is_file() else None
 
 class Position(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -49,7 +64,7 @@ def create_router(get_folder, authorize):
         temp.replace(dest)
 
     def validate_frame(p, name):
-        if name is not None and (not re.fullmatch(r'frame_\d{6}\.jpg', name) or not (p / name).is_file()):
+        if name is not None and photo_path(p, name) is None:
             raise HTTPException(422, 'Source photo must be an original frame from this session')
 
     @router.get('/api/sessions/{sid}/observations')
@@ -92,14 +107,18 @@ def create_router(get_folder, authorize):
     @router.get('/api/sessions/{sid}/frames')
     def frames(sid: str):
         p = get_folder(sid)
+        folder, pattern = photo_dir(p)
+        files = sorted(folder.iterdir(), key=lambda f: f.name) if folder.is_dir() else []
         return [{'name': f.name, 'url': f'/api/sessions/{sid}/frames/{f.name}'}
-                for f in sorted(p.glob('frame_*.jpg')) if re.fullmatch(r'frame_\d{6}\.jpg', f.name)]
+                for f in files if f.is_file() and pattern.fullmatch(f.name)]
 
     @router.get('/api/sessions/{sid}/frames/{name}')
     def frame(sid: str, name: str):
         p = get_folder(sid)
-        if not re.fullmatch(r'frame_\d{6}\.jpg', name) or not (p / name).is_file():
+        path = photo_path(p, name)
+        if path is None:
             raise HTTPException(404, 'Source photo not found')
-        return FileResponse(p / name, media_type='image/jpeg', headers={'Cache-Control': 'private, max-age=3600'})
+        media = 'image/png' if path.suffix.lower() == '.png' else 'image/jpeg'
+        return FileResponse(path, media_type=media, headers={'Cache-Control': 'private, max-age=3600'})
 
     return router
