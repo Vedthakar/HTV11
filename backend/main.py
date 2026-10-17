@@ -92,3 +92,7 @@ async def process(sid:str,request:Request,train:bool=False):
         if active:raise HTTPException(409,'Another processing job is running; wait for it to finish')
         active.add(sid)
     pool.submit(work,p,train);return {'queued':True}
+
+# Inspection records are kept apart from reconstruction/training state.
+from .observations import create_router
+app.include_router(create_router(folder, authorize))
