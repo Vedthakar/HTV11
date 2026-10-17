@@ -1,0 +1,21 @@
+.venv/
+.npm-cache/
+.build/
+.build-*.log
+__pycache__/
+*.pyc
+web/node_modules/
+web/dist/
+data/sessions/*
+!data/sessions/.gitkeep
+tools/brush_app
+tools/brush.tar.xz
+.env
+.DS_Store
+*.xcuserstate
+xcuserdata/
+
+# Brush runtime caches and local secrets
+target/
+.env.*
+!.env.example
