@@ -2,7 +2,7 @@
 
 Supported exports: Nerfstudio / Nerfstudio + Depth (transforms.json, images/, points3D.ply),
 COLMAP binary (cameras.bin, images.bin, points3D.bin) and a standalone points3D.ply.
-The dataset is kept as LOTA wrote it so Brush can train on it; only the viewer copies
+The dataset (photos, depth, poses) is kept as LOTA wrote it; only the viewer copies
 (cloud.ply, trajectory.json) are converted to the viewer's Y-up axes.
 """
 from pathlib import Path, PurePosixPath
@@ -287,7 +287,7 @@ def import_zip(zip_path, folder, max_bytes=8 << 30):
             fmt, (xyz, rgb), path, drop, jumps, total = import_colmap(images_bin, staging, dataset)
         elif ply := (shallowest(staging, 'points3D.ply') or shallowest(staging, '*.ply')):
             fmt, (xyz, rgb), path, drop, jumps, total = 'ply', read_ply(ply), [], set(), [], 0
-            warnings.append('Point cloud only: re-export as N + Depth or COLMAP to train a Gaussian splat.')
+            warnings.append('Point cloud only: this export has no camera path or photos.')
         else:
             raise ValueError('No LOTA export found: expected transforms.json, COLMAP .bin files or a .ply')
         if drop:
@@ -302,7 +302,7 @@ def import_zip(zip_path, folder, max_bytes=8 << 30):
         write_ply(folder / 'cloud.ply', xyz, rgb)
         (folder / 'trajectory.json').write_text(json.dumps(to_viewer(np.array(path).reshape(-1, 3)).tolist()))
         return {'source': 'lota', 'format': fmt, 'frames': total - len(drop), 'dropped_frames': len(drop),
-                'raw_points': raw_points, 'points': len(xyz), 'trainable': fmt != 'ply',
+                'raw_points': raw_points, 'points': len(xyz),
                 'warnings': warnings, 'demo': synthetic}
     except Exception:
         shutil.rmtree(dataset, ignore_errors=True)

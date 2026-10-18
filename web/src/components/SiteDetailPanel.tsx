@@ -1,7 +1,10 @@
+import {useEffect, useState} from 'react';
 import {clock, duration, REPORT_LABEL, SCAN_FAILURE_NOTE, STATUS_META} from '../mission/format.ts';
-import type {ReportStatus} from '../mission/types.ts';
+import type {ReportStatus, Site, SiteStatus} from '../mission/types.ts';
 import {useMissionPlayback} from '../mission/useMissionPlayback.ts';
 import {scanThumbnailSvg} from '../map/scanThumbnail.ts';
+import {linkedScanFor, type LinkedScan} from '../mission/linkedScans.ts';
+import {ScanViewer} from './ScanViewer.tsx';
 
 const REPORT_STEPS: ReportStatus[] = ['draft', 'awaiting_confirmation', 'submitted'];
 
@@ -53,15 +56,7 @@ export function SiteDetailPanel() {
         )}
       </section>
 
-      <section>
-        <div className="scan-preview" aria-label={`Scan preview for ${site.label} (simulated)`} role="img">
-          {site.scanPreviewUrl ? <img src={site.scanPreviewUrl} alt={`Scan preview for ${site.label}`} />
-            : status === 'pending' ? <span className="mono">[ NO SCAN YET ]</span>
-            : <span className="scan-render" dangerouslySetInnerHTML={{__html: scanThumbnailSvg({...site, status}, {width: 160, height: 100, count: 520})}} />}
-          {!site.scanPreviewUrl && status !== 'pending' && <span className="scan-caption mono">Simulated preview</span>}
-        </div>
-        <a className="btn-secondary" href="/studio.html" title="Opens the Capture studio. Linking a site to its scan is not wired up yet.">View 3D scan</a>
-      </section>
+      <ScanPreview site={site} status={status} />
 
       <section>
         <h3 className="mono">Report</h3>
@@ -77,5 +72,44 @@ export function SiteDetailPanel() {
 
       <p className="disclaimer mono">Automated flags are not a certified inspection.</p>
     </aside>
+  );
+}
+
+/**
+ * Scan area of the site panel. A site linked to a real capture (see linkedScans.ts) gets an interactive 3D view
+ * of that point cloud; otherwise the simulated thumbnail, or a placeholder before the rover arrives.
+ */
+function ScanPreview({site, status}: {site: Site; status: SiteStatus}) {
+  const [linked, setLinked] = useState<LinkedScan | null>(null);
+  useEffect(() => {
+    let live = true;
+    setLinked(null);
+    linkedScanFor(site.id).then(scan => { if (live) setLinked(scan); });
+    return () => { live = false; };
+  }, [site.id]);
+
+  const reached = status !== 'pending';
+  return (
+    <section>
+      {linked && reached ? (
+        <>
+          <div className="scan-preview is-live">
+            <ScanViewer cloudUrl={linked.cloudUrl} trajectoryUrl={linked.trajectoryUrl} label={linked.name} />
+            <span className="scan-caption mono">LIVE 3D · drag to orbit</span>
+          </div>
+          <p className="scan-source mono" title={linked.name}>
+            {linked.demoPairing ? 'Demo pairing: ' : ''}{linked.name}
+          </p>
+        </>
+      ) : (
+        <div className="scan-preview" aria-label={`Scan preview for ${site.label} (simulated)`} role="img">
+          {site.scanPreviewUrl ? <img src={site.scanPreviewUrl} alt={`Scan preview for ${site.label}`} />
+            : !reached ? <span className="mono">[ NO SCAN YET ]</span>
+            : <span className="scan-render" dangerouslySetInnerHTML={{__html: scanThumbnailSvg({...site, status}, {width: 160, height: 100, count: 520})}} />}
+          {!site.scanPreviewUrl && reached && <span className="scan-caption mono">Simulated preview</span>}
+        </div>
+      )}
+      <a className="btn-secondary" href="/studio.html" title="Opens the Capture studio">View 3D scan</a>
+    </section>
   );
 }

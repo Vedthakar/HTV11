@@ -21,8 +21,8 @@ class LotaImportTests(unittest.TestCase):
     def test_nerfstudio_depth_nested_folder(self):
         d, s, r = imported(fixture.nerfstudio)
         with d:
-            self.assertEqual((r['format'], r['frames'], r['dropped_frames'], r['trainable'], r['demo']),
-                             ('nerfstudio+depth', fixture.FRAMES - 1, 1, True, True))
+            self.assertEqual((r['format'], r['frames'], r['dropped_frames'], r['demo']),
+                             ('nerfstudio+depth', fixture.FRAMES - 1, 1, True))
             meta = json.loads((s / 'dataset' / 'transforms.json').read_text())
             self.assertEqual(len(meta['frames']), fixture.FRAMES - 1)
             self.assertTrue((s / 'transforms.original.json').is_file())
@@ -43,7 +43,7 @@ class LotaImportTests(unittest.TestCase):
     def test_ply_only_and_ascii(self):
         d, s, r = imported(fixture.ply_only)
         with d:
-            self.assertEqual((r['format'], r['trainable']), ('ply', False))
+            self.assertEqual(r['format'], 'ply')
             self.assertIn('Point cloud only', r['warnings'][0])
         d, s, r = imported(fixture.nerfstudio, depth=False, folder='', ascii_ply=True)
         with d:
@@ -73,7 +73,7 @@ class LotaImportTests(unittest.TestCase):
         drop, jumps = lota.pose_spikes(path)
         self.assertEqual((drop, jumps), (set(), [10]))
 
-    def test_api_import_photos_and_training_guard(self):
+    def test_api_import_photos_and_prepare_guard(self):
         with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as f:
             with patch.object(main, 'DATA', Path(d)), patch.object(main, 'TOKEN', 'test-token'):
                 c = TestClient(main.app); headers = {'X-Capture-Token': 'test-token', 'X-Filename': 'scan.zip'}
@@ -101,13 +101,9 @@ class LotaImportTests(unittest.TestCase):
                 self.assertEqual(note.status_code, 201)
 
                 ply = upload('p.zip')
-                self.assertEqual(c.post(f"/api/sessions/{ply['id']}/prepare?train=true", headers=headers).status_code, 200)
-                for _ in range(100):
-                    ply = next(s for s in c.get('/api/sessions').json() if s['id'] == ply['id'])
-                    if ply['status'] == 'failed':
-                        break
-                    time.sleep(.03)
-                self.assertIn('point cloud only', ply['error'])
+                self.assertEqual(ply['status'], 'prepared')
+                # LOTA imports arrive prepared; re-running geometry preparation on them is refused.
+                self.assertEqual(c.post(f"/api/sessions/{ply['id']}/prepare", headers=headers).status_code, 409)
 
 
 if __name__ == '__main__':

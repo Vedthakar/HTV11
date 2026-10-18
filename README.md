@@ -1,6 +1,6 @@
 # HTV Rover — iPhone LiDAR to an explorable 3D capture
 
-Local starter project for an iPhone 17 Pro mounted on a robot car. Capture RGB, LiDAR depth/confidence and ARKit camera poses, upload to this Mac, build geometry, then train and view Gaussian splats. This project uses Apple's frameworks, Three.js, SparkJS, and Brush directly.
+Local starter project for an iPhone 17 Pro mounted on a robot car. Capture RGB, LiDAR depth/confidence and ARKit camera poses, upload to this Mac, build geometry, and explore the point cloud. This project uses Apple's frameworks, Three.js, SparkJS, and Brush directly.
 
 ## Start on the laptop (Windows or macOS)
 
@@ -8,12 +8,9 @@ One-time setup (needs Python 3.12+ and Node 22+):
 
 ```bash
 npm run setup                                  # .venv + backend packages + web packages
-node scripts/py.mjs scripts/install_brush.py   # optional: Gaussian splat training
 ```
 
 `scripts/py.mjs` runs the venv's Python on either OS, so every npm script works on Windows and macOS.
-Brush is pinned per OS: 0.2.0 on Windows (v0.3.0 fails every dataset load there with "IO error ... early eof"), v0.3.0 on macOS/Linux. Training is GPU-bound: 1,500 steps on a small synthetic set took ~48 min on Intel Iris Xe, so prefer a discrete GPU or Apple Silicon for real captures.
-
 Terminal 1: `npm run backend` (or `npm run backend:lan` for the live stream; see below)
 Terminal 2: `npm run dev`
 
@@ -32,7 +29,7 @@ LOTA (LiDAR Over the Air) replaces the custom RoverCapture app. Settings for a r
 npm run watch -- "C:\Users\<you>\iCloudDrive\<folder>"
 ```
 
-The importer (`backend/lota.py`) accepts Nerfstudio, Nerfstudio + Depth, COLMAP binary and PLY-only exports. It drops single-frame pose spikes (rover jolts), warns about permanent path jumps (tracking relocalised), removes isolated floaters, thins the cloud to 1 cm and caps it at 200,000 points for the viewer. The dataset is kept as exported so **Train Gaussian splat** can use it; PLY-only exports cannot be trained. If a real export shows up rotated (Z-up), restart the backend with `HTV_LOTA_UP=z` (this rotates the point cloud and path only; a trained splat stays in the export's axes). ZIP uploads are capped at 4 GB (`HTV_IMPORT_MAX_MB`).
+The importer (`backend/lota.py`) accepts Nerfstudio, Nerfstudio + Depth, COLMAP binary and PLY-only exports. It drops single-frame pose spikes (rover jolts), warns about permanent path jumps (tracking relocalised), removes isolated floaters, thins the cloud to 1 cm and caps it at 200,000 points for the viewer. The dataset (photos, depth, poses) is kept as exported; its photos back inspection observations. If a real export shows up rotated (Z-up), restart the backend with `HTV_LOTA_UP=z` (this rotates the point cloud and path). ZIP uploads are capped at 4 GB (`HTV_IMPORT_MAX_MB`).
 
 Without a phone: `npm run fixtures` writes clearly marked SYNTHETIC LOTA-style ZIPs to `data/lota_fixtures/`.
 
@@ -62,7 +59,6 @@ Phone and laptop must be on the same network. Some hackathon networks isolate cl
 5. Record a static scene for a short test. Capture runs at up to 2 fps and skips frames unless ARKit tracking is normal and depth is present.
 6. Stop, then Upload. Select the uploaded session in the web viewer.
 7. Click **Prepare geometry**, wait for `prepared`, then select the session again to load its point cloud.
-8. Click **Train Gaussian splat**. Wait for `ready`, then select again to open the trained result.
 
 The app saves first to its Documents folder, accessible through Files/Finder file sharing. Upload is after capture, not live streaming. On upload failure, local data remains; retry creates a new server session. Backgrounding/interruption stops the scan to avoid silently mixing tracking coordinates.
 
@@ -76,7 +72,6 @@ Start handheld before attaching to the rover. Use a textured, static scene with 
 - FastAPI: sessions, bounded per-file streaming uploads, optional shared token, single-job processing queue, explicit errors and artifacts.
 - Python exporter: row-stride-free depth, confidence filtering, ARKit → world point cloud, ARKit → COLMAP camera conversion, COLMAP-format dataset and transforms.json.
 - Browser: real PLY point-cloud loader and SparkJS Gaussian-splat viewer, session status, fit/orbit/pan/zoom, local file import.
-- Brush runner: 1,500-step low-resolution first pass, output and log saved per session.
 
 ## What still needs hardware work
 
@@ -96,7 +91,7 @@ backend/capture.py             Coordinate conversion and dataset preparation
 web/src/main.js                Three.js point/splat rendering and session controls
 scripts/demo_capture.py        Explicitly synthetic fixture (never shown as a real scan)
 tests/test_pipeline.py         Geometry-convention, corrupt-input, upload, and job tests
-data/sessions/<id>/            Raw capture, dataset, cloud.ply, scene.ply, train.log
+data/sessions/<id>/            Raw capture, dataset, cloud.ply, trajectory.json
 ```
 
 The capture format uses `frame_000001.jpg`, `.depth`, `.confidence`, `.json`. JPEG is saved in the camera buffer's raw orientation. Matrices are serialized row-major; the camera transform is ARKit camera-to-world (+x right, +y up, -z forward). Depth is contiguous little-endian float32 in metres; confidence is uint8 (0/1/2). Image and depth calibration are scaled consistently. The COLMAP export inverts poses and flips camera y/z. Don't rotate JPEGs independently of their intrinsics/poses.
@@ -121,10 +116,7 @@ python3 -m venv .venv
 npm --prefix web ci --cache "$PWD/.npm-cache"
 ```
 
-Brush is optional for point clouds. The installed release's `--help` is saved in `tools/brush-help.txt`. Set `BRUSH_BIN` to use a different executable. Training progress/errors are in `data/sessions/<id>/train.log`; the server marks failures instead of displaying synthetic content as success.
-
 ## References
-- Brush: https://github.com/ArthurBrussee/brush (Apache-2.0; bundled release notices under tools/brush/)
 - SparkJS renderer: https://sparkjs.dev/docs/
 - ARKit: https://developer.apple.com/documentation/arkit
 

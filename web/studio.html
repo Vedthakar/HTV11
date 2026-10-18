@@ -1,1 +1,235 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rover / Capture studio</title></head><body><div id="app"><aside><a class="brand" href="/">ROVER<span> / HTV</span></a><a class="back-link" href="/">← Mission map</a><div class="rule"></div><small>CAPTURE STUDIO</small><h1>Your space,<br>in three dimensions.</h1><p class="muted">Scan with LOTA on iPhone. Map it on your laptop.</p><div id="health" class="badge">Checking laptop server…</div><div class="label-row"><small>SESSIONS</small><button id="refresh" class="quiet">Refresh ↻</button></div><div id="sessions"><p class="muted">No captures yet.</p></div><div class="actions"><label class="file import">Import LOTA capture (.zip)<input id="import" type="file" accept=".zip,application/zip"></label></div><progress id="import-progress" max="1" value="0" hidden></progress><p class="note">Or drop a LOTA_*.zip anywhere on this page. Export from LOTA as N + Depth (or COLMAP).</p><div id="session-info" class="note" role="status"></div><label class="house-toggle"><input type="checkbox" id="show-path" checked disabled> Show rover path</label><label class="token">Capture token<input id="token" type="password" placeholder="Only if configured on server" autocomplete="off"></label><div class="actions"><button id="prepare" disabled>Prepare geometry</button><button id="train" disabled>Train Gaussian splat</button></div><section id="live" aria-label="Live LOTA stream"><div class="rule"></div><small>LIVE FROM LOTA</small><label class="house-toggle"><input type="checkbox" id="live-enabled"> Show live point stream</label><div id="live-settings" hidden><label class="house-toggle"><input type="checkbox" id="live-accumulate" checked> Accumulate points</label><label class="live-space">Points arrive in<select id="live-space"><option value="world">World coordinates</option><option value="camera">Camera coordinates (apply pose)</option></select></label><div class="actions"><button id="live-fit">Fit to live points</button><button id="live-clear">Clear live points</button></div><p id="live-status" class="note" role="status">Not connected.</p><p class="note">In LOTA, send the PLY stream to this laptop on TCP 9848 and OSC to UDP 9000 (start the backend with npm run backend:lan). If points smear as the rover turns, switch to camera coordinates. Live points are a preview; import the exported ZIP for the map.</p></div></section><section id="house-designer" aria-label="Proposed house designer"><div class="rule"></div><small>PROPOSED HOUSE</small><label class="house-toggle"><input type="checkbox" id="house-enabled"> Show proposed house</label><p class="note">An editable concept model, separate from your captured scene. Starts beside the scan; use placement controls to move it. Source capture files stay unchanged.</p><div id="house-settings" hidden><label class="house-range" for="house-width">Width <output id="house-width-value">8.0 m</output></label><input id="house-width" type="range" min="3" max="16" step="0.5" value="8"><label class="house-range" for="house-depth">Depth <output id="house-depth-value">10.0 m</output></label><input id="house-depth" type="range" min="3" max="20" step="0.5" value="10"><label class="house-range" for="house-floors">Floors <output id="house-floors-value">2</output></label><input id="house-floors" type="range" min="1" max="3" step="1" value="2"><label class="house-range" for="house-roofHeight">Roof height <output id="house-roofHeight-value">2.0 m</output></label><input id="house-roofHeight" type="range" min="0.4" max="4" step="0.1" value="2"><label class="house-color" for="house-color">Wall colour <input id="house-color" type="color" value="#ded4c2"></label><label class="house-toggle"><input id="house-porch" type="checkbox" checked> Include front porch</label><div class="rule"></div><small>VIEW</small><div class="design-views" role="group" aria-label="Scene comparison"><button data-design-view="existing" aria-pressed="false">Existing</button><button data-design-view="proposed" aria-pressed="true">Proposed</button><button data-design-view="compare" aria-pressed="false">Compare</button></div><p id="comparison-help" class="note">Proposed: captured scene plus the solid proposed house. Existing buildings remain visible.</p><div class="rule"></div><small>REPLACEMENT REGION</small><label class="house-toggle"><input id="replacement-enabled" type="checkbox" disabled> Hide capture inside a box</label><p id="replacement-status" class="note" role="status">Load a scan to select a replacement region.</p><div id="replacement-fields" hidden><label class="house-toggle"><input id="replacement-outline" type="checkbox" checked> Show region outline</label><div class="placement-fields"><label for="region-center-x">Center X (m)<input id="region-center-x" type="number" step="0.1" max="100000"></label><label for="region-center-y">Center Y (m)<input id="region-center-y" type="number" step="0.1" max="100000"></label><label for="region-center-z">Center Z (m)<input id="region-center-z" type="number" step="0.1" max="100000"></label><label for="region-size-x">Width / X (m)<input id="region-size-x" type="number" step="0.1" min="0.1" max="100000"></label><label for="region-size-y">Height / Y (m)<input id="region-size-y" type="number" step="0.1" min="0.1" max="100000"></label><label for="region-size-z">Depth / Z (m)<input id="region-size-z" type="number" step="0.1" min="0.1" max="100000"></label></div><div class="actions"><button id="region-fit-house">Fit box to proposed house</button><button id="region-fit-scan">Fit box to entire scan</button></div><p class="note">Position this axis-aligned box around the old building. It hides everything inside, including ground and nearby objects. Existing restores the original; Proposed and Compare apply the cut. Gaussian edges may overlap the boundary. The box does not follow house movement. Preview settings reset on reload.</p></div><small>PLACEMENT</small><div class="placement-fields"><label for="place-x">X position (m)<input id="place-x" type="number" step="0.1" min="-100000" max="100000" value="0"></label><label for="place-y">Height / Y (m)<input id="place-y" type="number" step="0.1" min="-100000" max="100000" value="0"></label><label for="place-z">Z position (m)<input id="place-z" type="number" step="0.1" min="-100000" max="100000" value="0"></label><label for="place-yaw">Rotation (degrees)<input id="place-yaw" type="number" step="5" value="0"></label><label for="place-scale">Uniform scale<input id="place-scale" type="number" step="0.1" min="0.1" max="5" value="1"></label></div><div class="design-views"><button id="placement-move" aria-pressed="false">Move gizmo</button><button id="placement-rotate" aria-pressed="false">Rotate gizmo</button></div><div class="actions"><button id="placement-done">Finish placement</button><button id="placement-reset">Reset placement beside scan</button></div><p id="placement-summary" class="note"></p><p class="note">Drag a gizmo axis to position the house. Rotation is around the vertical axis. Use Y to set ground height; no automatic ground detection. Escape finishes placement.</p><p id="house-summary" class="note" aria-live="polite"></p><div class="actions"><button id="house-focus">Focus house</button><button id="house-reset">Reset house dimensions</button></div><p class="note">Floor height is fixed at 2.8 m. Dimensions describe this proposal; scan scale and ground alignment are not verified. Design values reset on page reload.</p></div></section><section id="observations" aria-label="Inspection observations"><div class="rule"></div><div class="label-row"><small>OBSERVATIONS</small><span id="observation-count" class="note">0 saved</span></div><div class="actions"><button id="add-observation" disabled>Add observation</button><button id="show-cloud" disabled>Open point cloud for placement</button></div><p class="note">Pins document visible observations. A confirmed observation is not a structural assessment.</p><div id="observation-list"></div><form id="observation-form" hidden><h3 id="observation-heading">New observation</h3><p id="observation-position" class="note"></p><label>Title<input id="observation-title" required maxlength="120" placeholder="For example: area beside window"></label><label>Description<textarea id="observation-description" maxlength="4000" rows="3" placeholder="Describe what you observed and what needs review."></textarea></label><label>Review status<select id="observation-status"><option value="unreviewed">Unreviewed</option><option value="confirmed">Confirmed observation</option><option value="dismissed">Dismissed</option></select></label><label>Original capture photo<select id="observation-photo"><option value="">No source photo selected</option></select></label><p class="note">Choose the photo that actually documents this location. Photo association is manual.</p><a id="evidence-link" target="_blank" rel="noopener" hidden><img id="evidence-photo" alt="Original capture photo attached to this observation" hidden></a><div class="actions"><button id="save-observation" type="submit">Save observation</button><button id="cancel-observation" type="button">Cancel</button></div></form></section><div class="rule"></div><small>OPEN AN EXISTING RECONSTRUCTION</small><div class="actions"><label class="file">Open point cloud<input id="cloud" type="file" accept=".ply"></label><label class="file">Open Gaussian splat<input id="splat" type="file" accept=".ply,.splat,.spz,.ksplat"></label></div><p class="note">PLY can contain points or trained Gaussians. Choose the matching loader.</p><details><summary>Scan with LOTA</summary><p>In LOTA, set Point Cloud Settings → Min Confidence High Only and Max Depth 3–4 m. Swipe to the capture page, choose N + Depth, set Capture Rate 30 Hz, pick an iCloud folder, then record while driving slowly. Import the LOTA_*.zip here, or run <code>npm run watch -- &lt;iCloud folder&gt;</code> to import automatically.</p></details><details><summary>RoverCapture (legacy app)</summary><p>Open RoverCapture in Xcode on a Mac, select your signing team, and run on your iPhone. Record a small scene, stop, then upload to your laptop’s LAN address on port 8008.</p></details><p id="notice" role="status" aria-live="polite"></p></aside><main id="viewport"><div class="topline"><span id="mode">NO SCAN LOADED</span><button id="fit" class="quiet">Fit view ↗</button></div><div id="proposal-badge" hidden>PROPOSED DESIGN · CONCEPT MODEL</div><div id="empty"><div class="glyph">⌖</div><h2>Ready for your first scan</h2><p>Import a LOTA capture or open a local reconstruction.</p><p class="sub">No generated scene is shown as real capture.</p></div><div class="bottomline"><span>Drag to orbit · Right-drag to pan · Scroll to zoom</span><span id="metrics">LOCAL WORKSPACE</span></div></main></div><script type="module" src="/src/main.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Premiere / Capture studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='5' fill='%23F25C24'/%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%231B2025' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="app">
+  <header class="appbar">
+    <a class="brand" href="/"><span class="brand-name">Premiere.</span><span class="brand-tag">[ CAPTURE STUDIO ]</span></a>
+    <div class="appbar-right">
+      <span id="health" class="health" data-state="checking">Checking server…</span>
+      <a class="appbar-link" href="/">Mission map</a>
+    </div>
+  </header>
+
+  <aside class="panel">
+    <nav class="tabs" role="tablist" aria-label="Studio sections">
+      <button role="tab" id="tab-scans" aria-controls="pane-scans" aria-selected="true">Scans</button>
+      <button role="tab" id="tab-live" aria-controls="pane-live" aria-selected="false">Live</button>
+      <button role="tab" id="tab-design" aria-controls="pane-design" aria-selected="false">Design</button>
+      <button role="tab" id="tab-notes" aria-controls="pane-notes" aria-selected="false">Notes</button>
+    </nav>
+
+    <div class="panes">
+      <!-- Scans -->
+      <section id="pane-scans" class="pane" role="tabpanel" aria-labelledby="tab-scans">
+        <div class="group">
+          <div class="group-head"><h2>Sessions</h2><button id="refresh" class="link-btn">Refresh</button></div>
+          <div id="sessions" class="session-list"><p class="muted">No captures yet.</p></div>
+          <label class="btn btn-primary file">Import LOTA capture<input id="import" type="file" accept=".zip,application/zip"></label>
+          <progress id="import-progress" max="1" value="0" hidden></progress>
+          <p class="hint">Or drop a <code>LOTA_*.zip</code> anywhere on the page.</p>
+          <div id="session-info" class="session-info" role="status"></div>
+          <div class="btn-row"><button id="prepare" class="btn" disabled hidden>Prepare geometry</button></div>
+          <label class="switch"><input type="checkbox" id="show-path" checked disabled><span>Show rover path</span></label>
+        </div>
+
+        <details class="disclosure">
+          <summary>Open a local file</summary>
+          <div class="btn-row">
+            <label class="btn file">Point cloud<input id="cloud" type="file" accept=".ply"></label>
+            <label class="btn file">Gaussian splat<input id="splat" type="file" accept=".ply,.splat,.spz,.ksplat"></label>
+          </div>
+          <p class="hint">A PLY can hold plain points or Gaussian splats; pick the matching loader.</p>
+        </details>
+
+        <details class="disclosure">
+          <summary>Server token</summary>
+          <label class="field">Capture token<input id="token" type="password" placeholder="Only if set on the server" autocomplete="off"></label>
+        </details>
+
+        <details class="disclosure">
+          <summary>How to scan with LOTA</summary>
+          <ol class="steps">
+            <li>Point Cloud Settings: Min Confidence <b>High Only</b>, Max Depth <b>3–4 m</b>.</li>
+            <li>Capture page: <b>N + Depth</b>, <b>30 Hz</b>, choose an iCloud folder.</li>
+            <li>Record while driving slowly, then import the <code>LOTA_*.zip</code>.</li>
+          </ol>
+          <p class="hint">To import automatically, run <code>npm run watch -- &lt;iCloud folder&gt;</code>.</p>
+        </details>
+
+        <details class="disclosure">
+          <summary>RoverCapture (legacy app)</summary>
+          <p class="hint">Build RoverCapture in Xcode on a Mac with your signing team, run it on the iPhone, record, then upload to this laptop's LAN address on port 8008.</p>
+        </details>
+      </section>
+
+      <!-- Live -->
+      <section id="pane-live" class="pane" role="tabpanel" aria-labelledby="tab-live" hidden>
+        <section id="live" class="group" aria-label="Live LOTA stream">
+          <h2>Live point stream</h2>
+          <label class="switch"><input type="checkbox" id="live-enabled"><span>Show live stream from LOTA</span></label>
+          <div id="live-settings" hidden>
+            <label class="switch"><input type="checkbox" id="live-accumulate" checked><span>Accumulate points</span></label>
+            <label class="field">Points arrive in
+              <select id="live-space"><option value="world">World coordinates</option><option value="camera">Camera coordinates (apply pose)</option></select>
+            </label>
+            <div class="btn-row">
+              <button id="live-fit" class="btn">Fit to points</button>
+              <button id="live-clear" class="btn">Clear</button>
+            </div>
+            <p id="live-status" class="status-line" role="status">Not connected.</p>
+            <details class="disclosure">
+              <summary>Connection setup</summary>
+              <p class="hint">Start the backend with <code>npm run backend:lan</code>. In LOTA, send the PLY stream to this laptop on TCP 9848 and OSC to UDP 9000. If points smear as the rover turns, switch to camera coordinates. Live points are a preview; import the exported ZIP for the map.</p>
+            </details>
+          </div>
+        </section>
+      </section>
+
+      <!-- Design -->
+      <section id="pane-design" class="pane" role="tabpanel" aria-labelledby="tab-design" hidden>
+        <section id="house-designer" aria-label="Proposed house designer">
+          <div class="group">
+            <h2>Proposed house</h2>
+            <label class="switch"><input type="checkbox" id="house-enabled"><span>Show proposed house</span></label>
+            <p class="hint">A concept model beside the scan. Your capture files are never changed.</p>
+          </div>
+
+          <div id="house-settings" hidden>
+            <div class="group">
+              <h3>Dimensions</h3>
+              <div class="range"><label for="house-width">Width</label><output id="house-width-value">8.0 m</output><input id="house-width" type="range" min="3" max="16" step="0.5" value="8"></div>
+              <div class="range"><label for="house-depth">Depth</label><output id="house-depth-value">10.0 m</output><input id="house-depth" type="range" min="3" max="20" step="0.5" value="10"></div>
+              <div class="range"><label for="house-floors">Floors</label><output id="house-floors-value">2</output><input id="house-floors" type="range" min="1" max="3" step="1" value="2"></div>
+              <div class="range"><label for="house-roofHeight">Roof height</label><output id="house-roofHeight-value">2.0 m</output><input id="house-roofHeight" type="range" min="0.4" max="4" step="0.1" value="2"></div>
+              <div class="inline-fields">
+                <label class="color-field" for="house-color">Wall colour <input id="house-color" type="color" value="#ded4c2"></label>
+                <label class="switch"><input id="house-porch" type="checkbox" checked><span>Front porch</span></label>
+              </div>
+              <p id="house-summary" class="status-line" aria-live="polite"></p>
+              <div class="btn-row">
+                <button id="house-focus" class="btn">Focus house</button>
+                <button id="house-reset" class="btn">Reset size</button>
+              </div>
+            </div>
+
+            <div class="group">
+              <h3>View</h3>
+              <div class="segmented" role="group" aria-label="Scene comparison">
+                <button data-design-view="existing" aria-pressed="false">Existing</button>
+                <button data-design-view="proposed" aria-pressed="true">Proposed</button>
+                <button data-design-view="compare" aria-pressed="false">Compare</button>
+              </div>
+              <p id="comparison-help" class="hint">Proposed: captured scene plus the solid proposed house.</p>
+            </div>
+
+            <div class="group">
+              <h3>Replacement region</h3>
+              <label class="switch"><input id="replacement-enabled" type="checkbox" disabled><span>Hide capture inside a box</span></label>
+              <p id="replacement-status" class="hint" role="status">Load a scan to select a replacement region.</p>
+              <div id="replacement-fields" hidden>
+                <label class="switch"><input id="replacement-outline" type="checkbox" checked><span>Show region outline</span></label>
+                <div class="grid3">
+                  <label for="region-center-x">Center X<input id="region-center-x" type="number" step="0.1" max="100000"></label>
+                  <label for="region-center-y">Center Y<input id="region-center-y" type="number" step="0.1" max="100000"></label>
+                  <label for="region-center-z">Center Z<input id="region-center-z" type="number" step="0.1" max="100000"></label>
+                  <label for="region-size-x">Width<input id="region-size-x" type="number" step="0.1" min="0.1" max="100000"></label>
+                  <label for="region-size-y">Height<input id="region-size-y" type="number" step="0.1" min="0.1" max="100000"></label>
+                  <label for="region-size-z">Depth<input id="region-size-z" type="number" step="0.1" min="0.1" max="100000"></label>
+                </div>
+                <div class="btn-row">
+                  <button id="region-fit-house" class="btn">Fit to house</button>
+                  <button id="region-fit-scan" class="btn">Fit to scan</button>
+                </div>
+                <p class="hint">Everything inside the box is hidden, including ground. Existing view restores it. The box doesn't follow the house.</p>
+              </div>
+            </div>
+
+            <div class="group">
+              <h3>Placement</h3>
+              <div class="grid3">
+                <label for="place-x">X (m)<input id="place-x" type="number" step="0.1" min="-100000" max="100000" value="0"></label>
+                <label for="place-y">Height (m)<input id="place-y" type="number" step="0.1" min="-100000" max="100000" value="0"></label>
+                <label for="place-z">Z (m)<input id="place-z" type="number" step="0.1" min="-100000" max="100000" value="0"></label>
+                <label for="place-yaw">Rotation (°)<input id="place-yaw" type="number" step="5" value="0"></label>
+                <label for="place-scale">Scale<input id="place-scale" type="number" step="0.1" min="0.1" max="5" value="1"></label>
+              </div>
+              <div class="segmented">
+                <button id="placement-move" aria-pressed="false">Move</button>
+                <button id="placement-rotate" aria-pressed="false">Rotate</button>
+              </div>
+              <div class="btn-row">
+                <button id="placement-done" class="btn">Finish</button>
+                <button id="placement-reset" class="btn">Reset beside scan</button>
+              </div>
+              <p id="placement-summary" class="status-line"></p>
+              <p class="hint">Drag a gizmo axis to move the house; Esc finishes. Floors are 2.8 m. Scan scale and ground height aren't verified, so set Height by eye.</p>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <!-- Notes -->
+      <section id="pane-notes" class="pane" role="tabpanel" aria-labelledby="tab-notes" hidden>
+        <section id="observations" class="group" aria-label="Inspection observations">
+          <div class="group-head"><h2>Observations</h2><span id="observation-count" class="count">0 saved</span></div>
+          <div class="btn-row">
+            <button id="add-observation" class="btn btn-primary" disabled>Add observation</button>
+            <button id="show-cloud" class="btn" disabled>Open point cloud</button>
+          </div>
+          <div id="observation-list" class="observation-list"></div>
+          <form id="observation-form" class="card-form" hidden>
+            <h3 id="observation-heading">New observation</h3>
+            <p id="observation-position" class="mono-line"></p>
+            <label class="field">Title<input id="observation-title" required maxlength="120" placeholder="e.g. Area beside window"></label>
+            <label class="field">Description<textarea id="observation-description" maxlength="4000" rows="3" placeholder="What you observed and what needs review"></textarea></label>
+            <label class="field">Review status
+              <select id="observation-status"><option value="unreviewed">Unreviewed</option><option value="confirmed">Confirmed observation</option><option value="dismissed">Dismissed</option></select>
+            </label>
+            <label class="field">Source photo
+              <select id="observation-photo"><option value="">No source photo</option></select>
+            </label>
+            <a id="evidence-link" target="_blank" rel="noopener" hidden><img id="evidence-photo" alt="Original capture photo attached to this observation" hidden></a>
+            <div class="btn-row">
+              <button id="save-observation" class="btn btn-primary" type="submit">Save</button>
+              <button id="cancel-observation" class="btn" type="button">Cancel</button>
+            </div>
+          </form>
+          <p class="hint">Pins record what is visible; choose the photo that shows it. A confirmed observation is not a structural assessment.</p>
+        </section>
+      </section>
+    </div>
+
+    <p id="notice" class="notice" role="status" aria-live="polite"></p>
+  </aside>
+
+  <main id="viewport">
+    <div class="topline">
+      <span id="mode" class="chip">NO SCAN LOADED</span>
+      <button id="fit" class="chip chip-btn">Fit view</button>
+    </div>
+    <div id="proposal-badge" class="chip chip-accent" hidden>PROPOSED DESIGN · CONCEPT MODEL</div>
+    <div id="empty">
+      <svg class="empty-glyph" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="4"/><circle cx="24" cy="24" r="12"/><circle cx="24" cy="24" r="20"/></svg>
+      <h2>No scan loaded</h2>
+      <p>Import a LOTA capture or open a local reconstruction.</p>
+    </div>
+    <div class="bottomline">
+      <span class="hints"><kbd>Drag</kbd> orbit <kbd>Right-drag</kbd> pan <kbd>Scroll</kbd> zoom</span>
+      <span id="metrics" class="metrics">LOCAL WORKSPACE</span>
+    </div>
+    <div class="drop-overlay" aria-hidden="true"><span>Drop LOTA capture to import</span></div>
+  </main>
+</div>
+<script type="module" src="/src/studio-tabs.js"></script>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

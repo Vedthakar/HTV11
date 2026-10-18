@@ -1,7 +1,7 @@
 from pathlib import Path
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
-import json, os, re, secrets, shutil, subprocess, time, uuid
+import json, os, re, secrets, shutil, time, uuid
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,17 +34,11 @@ def public(p):
     s=json.loads((p/'session.json').read_text())
     if s.get('source')!='lota':s['frames']=len(list(p.glob('frame_*.json')))
     s['cloud_url']=f'/api/sessions/{p.name}/assets/cloud.ply' if (p/'cloud.ply').exists() else None
-    s['splat_url']=f'/api/sessions/{p.name}/assets/scene.ply' if (p/'scene.ply').exists() else None
     s['trajectory_url']=f'/api/sessions/{p.name}/assets/trajectory.json' if (p/'trajectory.json').exists() else None
     return s
 
-def brush_path():
-    for candidate in [os.environ.get('BRUSH_BIN'),shutil.which('brush'),shutil.which('brush_app'),ROOT/'tools'/'brush_app.exe',ROOT/'tools'/'brush_app']:
-        if candidate and Path(candidate).is_file():return str(candidate)
-    return None
-
 @app.get('/api/health')
-def health():return {'ok':True,'brush':bool(brush_path()),'capture_token_required':bool(TOKEN)}
+def health():return {'ok':True,'capture_token_required':bool(TOKEN)}
 
 @app.get('/api/sessions')
 def sessions():return [public(p) for p in sorted(DATA.iterdir(),reverse=True) if p.is_dir() and (p/'session.json').exists()]
@@ -71,31 +65,15 @@ async def upload(sid:str,name:str,request:Request):
 
 @app.get('/api/sessions/{sid}/assets/{name}')
 def asset(sid:str,name:str):
-    if name not in ['cloud.ply','scene.ply','trajectory.json','train.log']:raise HTTPException(404)
+    if name not in ['cloud.ply','trajectory.json']:raise HTTPException(404)
     p=folder(sid)/name
     if not p.is_file():raise HTTPException(404)
     return FileResponse(p)
 
-def work(p,train):
+def work(p):
+    """Prepare geometry for a RoverCapture session (LOTA imports arrive already prepared)."""
     try:
-        s=json.loads((p/'session.json').read_text())
-        if s.get('source')=='lota':
-            # Imported sessions arrive prepared; only training remains.
-            if train and not s.get('trainable'):raise ValueError('This LOTA export is a point cloud only. Re-export as N + Depth or COLMAP to train.')
-            status(p,error=None)
-        else:
-            status(p,status='preparing',error=None);result=prepare(p);status(p,**result,status='prepared')
-        if train:
-            brush=brush_path()
-            if not brush:raise ValueError('Brush is not installed. See README; geometry is available.')
-            status(p,status='training');out=p/'trained';out.mkdir(exist_ok=True)
-            cmd=[brush,str(p/'dataset'),'--total-steps','1500','--max-resolution','720','--export-every','1500','--export-path',str(out),'--export-name','scene.ply']
-            with (p/'train.log').open('w') as log:
-                proc=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=1800)
-            if proc.returncode:raise ValueError('Brush failed. Read train.log for details.')
-            matches=list(out.rglob('*.ply'))
-            if not matches:raise ValueError('Brush returned no PLY. Check train.log.')
-            shutil.copy2(max(matches,key=lambda f:f.stat().st_mtime),p/'scene.ply');status(p,status='ready')
+        status(p,status='preparing',error=None);result=prepare(p);status(p,**result,status='prepared')
     except Exception as e:status(p,status='failed',error=str(e))
     finally:
         with lock:active.discard(p.name)
@@ -129,14 +107,15 @@ async def import_capture(request:Request):
     status(p,status='importing');pool.submit(import_work,p);return public(p)
 
 @app.post('/api/sessions/{sid}/prepare')
-async def process(sid:str,request:Request,train:bool=False):
+async def process(sid:str,request:Request):
     authorize(request);p=folder(sid)
+    if json.loads((p/'session.json').read_text()).get('source')=='lota':raise HTTPException(409,'LOTA imports are already prepared')
     with lock:
         if active:raise HTTPException(409,'Another processing job is running; wait for it to finish')
         active.add(sid)
-    pool.submit(work,p,train);return {'queued':True}
+    pool.submit(work,p);return {'queued':True}
 
-# Inspection records are kept apart from reconstruction/training state.
+# Inspection records are kept apart from reconstruction state.
 from .observations import create_router
 app.include_router(create_router(folder, authorize))
 
