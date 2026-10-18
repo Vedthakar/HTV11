@@ -42,7 +42,8 @@ export function SiteDetailPanel() {
         <h3 className="mono">Possible hazards flagged for human follow-up</h3>
         {!inspected && <p className="muted">{status === 'pending' ? 'Not yet inspected.' : 'Inspection in progress…'}</p>}
         {inspected && status === 'failed' && <p className="muted">{SCAN_FAILURE_NOTE} Re-scan recommended.</p>}
-        {inspected && status !== 'failed' && site.hazards.length === 0 && <p className="muted">No hazards flagged.</p>}
+        {site.simulated && <p className="muted">Simulated survey stop only. No inspection or safety assessment was performed.</p>}
+        {inspected && !site.simulated && status !== 'failed' && site.hazards.length === 0 && <p className="muted">No hazards flagged.</p>}
         {inspected && site.hazards.length > 0 && (
           <ul className="hazards">
             {site.hazards.map(h => (

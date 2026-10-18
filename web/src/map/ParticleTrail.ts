@@ -1,6 +1,6 @@
 // Rover particle trail, drawn on a 2D canvas between the map's WebGL canvas and its markers.
 // Moving rovers shed fading particles; a rover dwelling at a site gives off a small radial "LiDAR spray".
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import type {MissionStore} from '../mission/store.ts';
 import {poseAt} from '../mission/track.ts';
 import type {LngLat} from '../mission/types.ts';

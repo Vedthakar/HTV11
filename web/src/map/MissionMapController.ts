@@ -1,6 +1,8 @@
 // Imperative bridge between the MissionStore and MapLibre: route lines, rover markers, flags and the follow camera.
 // Everything here runs on store frames, outside React.
-import maplibregl, {type GeoJSONSource} from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import type {Feature,LineString} from 'geojson';
+import type {GeoJSONSource} from 'maplibre-gl';
 import type {MissionState, MissionStore} from '../mission/store.ts';
 import {distanceM, poseAt, traveledCoords} from '../mission/track.ts';
 import type {LngLat, Mission} from '../mission/types.ts';
@@ -9,7 +11,7 @@ import {createSitePing, type SitePingHandle} from './SitePing.ts';
 
 export const DEFAULT_PITCH = 50;
 const LINE_UPDATE_MS = 33;
-const emptyLine = (coords: LngLat[] = []): GeoJSON.Feature<GeoJSON.LineString> =>
+const emptyLine = (coords: LngLat[] = []): Feature<LineString> =>
   ({type: 'Feature', properties: {}, geometry: {type: 'LineString', coordinates: coords}});
 
 interface MissionLayers { mission: Mission; rover: maplibregl.Marker; roverEl: HTMLElement; ends: maplibregl.Marker[]; lastLineAt: number; lastLen: number; }

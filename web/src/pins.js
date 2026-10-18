@@ -4,6 +4,11 @@ const COLORS = {unreviewed: 0xffc576, confirmed: 0x9bd2ac, dismissed: 0x87949e};
 
 // Handles only scene markers and picking; storage and forms live in observations.js.
 export function createPins({scene, camera, canvas, controls, onPlace, onSelect, isBlocked=()=>false, isVisible=()=>true}) {
+  const labels=document.createElement('div');labels.className='pin-label-layer';labels.setAttribute('aria-label','Observation labels');canvas.parentElement.append(labels);
+  const toggle=document.createElement('button');toggle.className='pin-label-toggle';toggle.type='button';toggle.textContent='Text labels: on';toggle.setAttribute('aria-pressed','true');canvas.parentElement.append(toggle);
+  let showLabels=true;
+  toggle.onclick=()=>{showLabels=!showLabels;toggle.textContent=`Text labels: ${showLabels?'on':'off'}`;toggle.setAttribute('aria-pressed',String(showLabels));};
+  const projected=new THREE.Vector3();
   const group = new THREE.Group();
   scene.add(group);
   const geometry = new THREE.SphereGeometry(1, 14, 10);
@@ -13,12 +18,21 @@ export function createPins({scene, camera, canvas, controls, onPlace, onSelect, 
   let items = [], draft = null, threshold = .05;
 
   function rebuild() {
+    labels.replaceChildren();
     for (const child of [...group.children]) {group.remove(child);child.material.dispose();}
     for (const item of [...items, ...(draft ? [{id: '__draft', position: draft, reviewStatus: 'unreviewed'}] : [])]) {
       const marker = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({color: item.id === selectedId ? 0xffffff : COLORS[item.reviewStatus], depthTest: false, depthWrite: false}));
       marker.position.set(item.position.x, item.position.y, item.position.z);
       marker.userData.observationId = item.id;
       marker.renderOrder = 100;
+      const label=document.createElement('button');label.type='button';label.className='pin-text-label';
+      label.dataset.status=item.reviewStatus;label.dataset.selected=String(item.id===selectedId);
+      const title=document.createElement('strong');title.textContent=item.id==='__draft'?'New observation':item.title;
+      const status=document.createElement('span');status.textContent=item.id==='__draft'?'Unsaved pin':{unreviewed:'Unreviewed',confirmed:'Confirmed observation',dismissed:'Dismissed'}[item.reviewStatus];
+      label.append(title,status);label.title=title.textContent;label.setAttribute('aria-label',`${title.textContent} — ${status.textContent}`);
+      label.addEventListener('pointerdown',event=>event.stopPropagation());
+      label.onclick=event=>{event.stopPropagation();if(item.id!=='__draft'&&!mode&&!isBlocked())onSelect(item.id);};
+      labels.append(label);marker.userData.label=label;
       group.add(marker);
     }
   }
@@ -69,6 +83,20 @@ export function createPins({scene, camera, canvas, controls, onPlace, onSelect, 
     clearDraft() {draft=null;rebuild();},
     reset() {setMode(false);cloud=null;items=[];draft=null;selectedId=null;rebuild();},
     update() {
+      // Project text to screen space, so labels stay readable while orbiting.
+      const width=canvas.clientWidth,height=canvas.clientHeight,occupied=[];
+      const sorted=[...group.children].sort((a,b)=>Number(b.userData.observationId===selectedId)-Number(a.userData.observationId===selectedId));
+      for(const marker of sorted) {
+        const label=marker.userData.label;projected.copy(marker.position).project(camera);
+        label.hidden=true;
+        if(!showLabels||!isVisible(marker.position)||projected.z < -1||projected.z > 1||Math.abs(projected.x)>1||Math.abs(projected.y)>1)continue;
+        const w=Math.min(200,Math.max(width-16,1)),h=47;
+        const x=Math.max(8,Math.min(width-w-8,(projected.x+1)*width/2+14));
+        const y=Math.max(8,Math.min(height-h-8,(1-projected.y)*height/2-22));
+        const rect={x,y,w,h};
+        if(occupied.some(r=>x<r.x+r.w+4&&x+w+4>r.x&&y<r.y+r.h+4&&y+h+4>r.y))continue;
+        occupied.push(rect);label.hidden=false;label.style.width=`${w}px`;label.style.transform=`translate(${x}px,${y}px)`;label.disabled=mode||isBlocked()||marker.userData.observationId==='__draft';
+      }
       // Keep markers roughly constant in screen size while zooming.
       const factor = Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*18/Math.max(canvas.clientHeight,1);
       for (const marker of group.children) {marker.visible=isVisible(marker.position);marker.scale.setScalar(camera.position.distanceTo(marker.position)*factor);}

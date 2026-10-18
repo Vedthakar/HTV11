@@ -9,6 +9,7 @@ export type ReportStatus = 'draft' | 'awaiting_confirmation' | 'submitted';
 export interface Hazard { type: string; confidence: 'low' | 'medium' | 'high'; note?: string; }
 
 export interface Site {
+  simulated?: boolean;
   id: string;              // "SITE-03"
   label: string;           // display label, e.g. "SITE 03"
   area: string;            // neighbourhood-level only, never a street address

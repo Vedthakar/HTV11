@@ -212,3 +212,9 @@ body.dropping .drop-overlay { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: 0s !important; }
 }
+
+.pin-label-layer{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}.pin-text-label{position:absolute;left:0;top:0;pointer-events:auto;text-align:left;padding:7px 10px;background:#182421ef;border:1px solid #ffc576;border-left-width:3px;color:#edf3e9;box-shadow:0 3px 12px #0005;height:47px;font-size:11px;overflow:hidden}.pin-text-label strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}.pin-text-label span{display:block;color:#c0cfc5;font-size:9px;margin-top:3px}.pin-text-label[data-status=confirmed]{border-color:#9bd2ac}.pin-text-label[data-status=dismissed]{border-color:#87949e}.pin-text-label[data-selected=true]{outline:2px solid #fff;outline-offset:2px;z-index:2}.pin-text-label:disabled{opacity:1;cursor:default}.pin-label-toggle{position:absolute;right:24px;top:60px;z-index:4;background:#1c2c27e8;border-color:#60786c;color:#d5e4da;padding:7px 10px;font-size:11px}
+
+.embedded-studio .workspace-tabs,.embedded-studio .brand{display:none}.embedded-studio aside{padding-top:16px}
+
+#building-scan-context{border-bottom:1px solid #a7b4b6;padding-bottom:14px;margin-bottom:16px}#building-scan-context h2{font-size:18px}#building-scan-context p{font-size:11px;line-height:1.5}#building-scan-choice{width:100%;padding:8px;margin:8px 0}#building-linked-list .actions{display:flex;gap:8px;margin:8px 0}.embedded-studio .header{display:none}

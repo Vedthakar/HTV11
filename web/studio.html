@@ -31,13 +31,13 @@
       <!-- Scans -->
       <section id="pane-scans" class="pane" role="tabpanel" aria-labelledby="tab-scans">
         <div class="group">
-          <div class="group-head"><h2>Sessions</h2><button id="refresh" class="link-btn">Refresh</button></div>
+          <section id="building-scan-context" hidden><small>SELECTED MAP LOCATION</small><h2 id="building-scan-label"></h2><p id="building-scan-summary" class="note" role="status"></p><button id="building-scan-all" class="btn">Show all scans</button><div id="building-linked-list"></div><label class="city-select">Attach existing capture<select id="building-scan-choice"><option value="">Select a capture</option></select></label><button class="btn" id="building-scan-attach">Attach scan to this location</button><p class="note">Attach only captures recorded at this location. This saves a record association, not geographic alignment. Use the capture token below if required.</p><div class="rule"></div></section><div class="group-head"><h2>Sessions</h2><button id="refresh" class="link-btn">Refresh</button></div>
           <div id="sessions" class="session-list"><p class="muted">No captures yet.</p></div>
           <label class="btn btn-primary file">Import LOTA capture<input id="import" type="file" accept=".zip,application/zip"></label>
           <progress id="import-progress" max="1" value="0" hidden></progress>
           <p class="hint">Or drop a <code>LOTA_*.zip</code> anywhere on the page.</p>
           <div id="session-info" class="session-info" role="status"></div>
-          <div class="btn-row"><button id="prepare" class="btn" disabled hidden>Prepare geometry</button></div>
+          <div class="btn-row"><button id="prepare" class="btn" disabled hidden>Prepare geometry</button><button id="train" class="btn" disabled>Train Gaussian splat</button><button id="show-splat" class="btn" disabled>Open Gaussian splat</button></div>
           <label class="switch"><input type="checkbox" id="show-path" checked disabled><span>Show rover path</span></label>
         </div>
 

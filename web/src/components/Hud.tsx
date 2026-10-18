@@ -28,7 +28,7 @@ export function MissionTitle() {
       </p>
       <p className="mono coords"><span ref={coords} aria-live="off" /></p>
       <p className="hud-tags mono">
-        {state.isMock && <span className="tag tag-demo" title="Simulated mission and sites; not real inspection results">DEMO DATA</span>}
+        {state.isMock && <span className="tag tag-demo" title="Simulated mission and sites; not real inspection results">Mission Map</span>}
         <a className="tag tag-link" href="/studio.html">Capture studio ↗</a>
       </p>
     </header>

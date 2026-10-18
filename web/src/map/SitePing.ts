@@ -1,7 +1,7 @@
 // A site on the map as a LiDAR ping: rings sweep outward on the ground, a reticle locks on, then a status chip
 // with a mini scan thumbnail slides out. Two markers: one lies flat on the ground (rings), one stays upright
 // (reticle + chip) so the text is readable when the map is tilted. Built imperatively: it changes on the frame path.
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import {clock, STATUS_META} from '../mission/format.ts';
 import type {Site, SiteStatus} from '../mission/types.ts';
 import {scanThumbnailSvg} from './scanThumbnail.ts';

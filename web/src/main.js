@@ -19,6 +19,8 @@ scene.add(new THREE.GridHelper(20,40,0x4a5157,0x2a2f34));
 scene.add(new SparkRenderer({renderer}));
 let content=null,selected=null,selectedSession=null,requestVersion=0,currentBounds=null;
 let lastSessionSignature='';
+let buildingTarget=null,buildingFilter=null,buildingLinks=[],buildingVersion=0;
+let brushAvailable=false,pendingTrain=null;
 let replacement=null;
 let pendingImport=null;
 const SOURCE_LABEL={lota:'LOTA',rover:'RoverCapture'};
@@ -98,7 +100,7 @@ async function load(url,kind,demo=false,fileName){
     notice(kind==='splat'?'Loaded. Open the point cloud to place observations.':'Loaded. Choose Add observation to pin a note to a captured point.');
   }catch(e){if(version===requestVersion){dispose(obj);notice(`Could not load: ${e.message}`);}}
 }
-function resize(){const w=viewport.clientWidth,h=viewport.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
+function resize(){const w=viewport.clientWidth,h=viewport.clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(viewport);
 renderer.setAnimationLoop(()=>{controls.update();pins.update();renderer.render(scene,camera);});
 $('#fit').onclick=()=>fit();
@@ -107,7 +109,7 @@ $('#add-observation').addEventListener('click',()=>designer.stopEditing(),true);
 for(const kind of ['cloud','splat'])$('#'+kind).onchange=async e=>{
   const file=e.target.files[0];if(!file)return;
   ++requestVersion;clear();selected=null;selectedSession=null;
-  $('#prepare').disabled=true;clearPath();sessionInfo(null);
+  $('#prepare').disabled=true;$('#train').disabled=true;$('#show-splat').disabled=true;clearPath();sessionInfo(null);
   await observations.activate(null);
   const url=URL.createObjectURL(file);await load(url,kind,false,file.name);URL.revokeObjectURL(url);e.target.value='';
   notice('Local file loaded. Select a saved session to create persistent observations.');
@@ -118,9 +120,13 @@ async function selectSession(s){
   $('#empty').hidden=designer.visible;$('#mode').textContent='LOADING SESSION';
   const imported=s.source==='lota';
   $('#prepare').hidden=imported;$('#prepare').disabled=false;
+  $('#train').disabled=!brushAvailable||['capturing','uploading','importing','preparing','training','queued'].includes(s.status);
+  $('#train').title=brushAvailable?'Prepare capture photos and train a Gaussian model':'Brush not installed on the backend';
+  $('#show-splat').disabled=!s.splat_url;
   sessionInfo(s);
   const notes=observations.activate(s);
-  if(s.cloud_url)await load(s.cloud_url,'cloud',s.demo);
+  if(s.splat_url)await load(s.splat_url,'splat',s.demo);
+  else if(s.cloud_url)await load(s.cloud_url,'cloud',s.demo);
   else notice(imported?`Import ${s.status}. It opens automatically when ready.`:'Prepare geometry to load this capture and place observations.');
   if(selected===s.id)await loadPath(s.trajectory_url);
   await notes;
@@ -131,20 +137,25 @@ async function selectSession(s){
 async function refresh(){
   try{
     const h=await fetch('/api/health');if(!h.ok)throw Error('Server unavailable');
-    $('#health').textContent='Server online';$('#health').dataset.state='online';
+    const health=await h.json();brushAvailable=Boolean(health.brush);
+    $('#health').textContent=brushAvailable?'Server online · Brush ready':'Server online · Brush unavailable';$('#health').dataset.state='online';
     const r=await fetch('/api/sessions');if(!r.ok)throw Error('Session list unavailable');
     const sessions=await r.json();
+    const trained=pendingTrain&&sessions.find(s=>s.id===pendingTrain&&['ready','failed'].includes(s.status));
+    if(trained){pendingTrain=null;if(trained.status==='ready'&&selected===trained.id){await selectSession(trained);return;}notice(trained.error||'Gaussian training completed.');}
     const finished=pendingImport&&sessions.find(s=>s.id===pendingImport&&['prepared','failed'].includes(s.status));
     if(finished){
       pendingImport=null;
-      if(finished.status==='failed')notice(`Import failed: ${finished.error}`);else{notice('Import finished.');selectSession(finished);return;}
+      if(finished.status==='failed')notice(`Import failed: ${finished.error}`);else if(buildingTarget){notice('Import finished. Attach it to this location, or choose Show all scans.');}else{notice('Import finished.');selectSession(finished);return;}
     }
     // Do not replace buttons every poll: preserve focus, and never reset an open note.
-    const signature=JSON.stringify({sessions,selected});
+    const signature=JSON.stringify({sessions,selected,buildingFilter});
     if(signature===lastSessionSignature)return;lastSessionSignature=signature;
     $('#sessions').replaceChildren();
-    if(!sessions.length){const p=document.createElement('p');p.className='muted';p.textContent='No captures yet.';$('#sessions').append(p);}
-    for(const s of sessions){
+    updateBuildingControls(sessions);
+    const shown=buildingFilter?sessions.filter(s=>buildingFilter.includes(s.id)):sessions;
+    if(!shown.length){const p=document.createElement('p');p.className='muted';p.textContent=buildingTarget?'No scans linked to this location.':'No captures yet.';$('#sessions').append(p);}
+    for(const s of shown){
       const button=document.createElement('button');button.className='session'+(selected===s.id?' selected':'');
       const name=document.createElement('span');name.className='session-name';
       name.textContent=s.name||new Date(s.created_at*1000).toLocaleString();
@@ -153,7 +164,7 @@ async function refresh(){
       detail.textContent=[SOURCE_LABEL[s.source||'rover'],s.name?new Date(s.created_at*1000).toLocaleString():null,`${s.frames??0} frames`,s.demo?'SYNTHETIC TEST CAPTURE':null].filter(Boolean).join(' · ');
       button.append(name,state,detail);
       button.onclick=()=>selectSession(s);$('#sessions').append(button);
-      if(selected===s.id){selectedSession=s;$('#show-cloud').disabled=!s.cloud_url;}
+      if(selected===s.id){selectedSession=s;$('#show-cloud').disabled=!s.cloud_url;$('#show-splat').disabled=!s.splat_url;$('#train').disabled=!brushAvailable||['capturing','uploading','importing','preparing','training','queued'].includes(s.status);}
     }
   }catch(e){$('#health').textContent='Server offline';$('#health').dataset.state='offline';notice('Cannot reach backend. Start or restart it, then refresh.');}
 }
@@ -188,3 +199,96 @@ addEventListener('dragleave',()=>{if(--dragDepth<=0){dragDepth=0;document.body.c
 addEventListener('dragover',e=>e.preventDefault());
 addEventListener('drop',e=>{e.preventDefault();dragDepth=0;document.body.classList.remove('dropping');importZip(e.dataTransfer.files[0]);});
 $('#refresh').onclick=refresh;observations.activate(null);refresh();setInterval(refresh,4000);
+
+$('#train').onclick=async()=>{
+  if(!selected)return;
+  const sid=selected;$('#train').disabled=true;
+  try {
+    const r=await fetch(`/api/sessions/${sid}/train`,{method:'POST',headers:{'X-Capture-Token':$('#token').value}});
+    const body=await r.json();if(!r.ok)throw Error(body.detail||'Training request failed');
+    pendingTrain=sid;notice('Gaussian training queued. This can take several minutes; the point cloud remains available.');lastSessionSignature='';await refresh();
+  }catch(error){notice(error.message);$('#train').disabled=!brushAvailable;}
+};
+$('#show-splat').onclick=()=>{if(selectedSession?.splat_url)load(selectedSession.splat_url,'splat',selectedSession.demo);};
+
+function resetScanDashboard() {
+  ++requestVersion;designer.stopEditing();observations.cancel();clear();clearPath();sessionInfo(null);
+  selected=null;selectedSession=null;
+  if($('#house-enabled').checked)$('#house-enabled').click();
+  observations.activate(null);
+  $('#prepare').disabled=true;$('#train').disabled=true;$('#show-splat').disabled=true;$('#show-cloud').disabled=true;
+  $('#empty h2').textContent='Ready for your first scan';$('#empty p').textContent='Record with RoverCapture or open a local reconstruction.';
+  $('#empty').hidden=false;$('#mode').textContent='NO SCAN LOADED';$('#metrics').textContent='LOCAL WORKSPACE';
+  lastSessionSignature='';
+}
+async function readBuildingLinks(target) {
+  const response=await fetch(`/api/building-scans?target=${encodeURIComponent(target.key)}`);
+  if(!response.ok)throw Error(response.status===404?'Restart the backend to enable saved building links.':'Could not read building links.');
+  return response.json();
+}
+function updateBuildingControls(sessions) {
+  $('#building-scan-context').hidden=!buildingTarget;if(!buildingTarget)return;
+  $('#building-scan-label').textContent=buildingTarget.label;
+  const available=buildingLinks.filter(link=>sessions.some(s=>s.id===link.sessionId));
+  $('#building-scan-summary').textContent=available.length?`${available.length} linked scan(s). Showing this location’s captures.`:'No scans linked to this location.';
+  if(!available.length&&!content){$('#empty h2').textContent='No scans linked';$('#empty p').textContent=`No scans have been attached to ${buildingTarget.label}. Use Show all scans to browse other captures.`;}
+  const choice=$('#building-scan-choice'),previous=choice.value;
+  choice.replaceChildren(new Option('Select a capture',''));
+  for(const s of sessions)choice.add(new Option(`${new Date(s.created_at*1000).toLocaleString()} · ${s.frames} frames${s.demo?' · SYNTHETIC TEST':''}`,s.id));
+  choice.value=sessions.some(s=>s.id===previous)?previous:'';
+  const list=$('#building-linked-list');list.replaceChildren();
+  for(const link of buildingLinks){
+    const row=document.createElement('div');row.className='actions';
+    const text=document.createElement('span');text.className='note';
+    const session=sessions.find(s=>s.id===link.sessionId);
+    text.textContent=session?`Linked: ${new Date(session.created_at*1000).toLocaleString()}${session.demo?' · SYNTHETIC TEST':''}`:'Linked capture no longer available';
+    const remove=document.createElement('button');remove.textContent='Unlink capture';
+    remove.onclick=()=>changeBuildingLink('DELETE',link.sessionId);
+    row.append(text,remove);list.append(row);
+  }
+}
+async function openBuilding(target) {
+  $('#tab-scans').click();
+  const version=++buildingVersion;buildingTarget=target;buildingFilter=[];buildingLinks=[];
+  resetScanDashboard();
+  $('#building-scan-context').hidden=false;$('#building-scan-label').textContent=target.label;
+  $('#building-scan-summary').textContent='Looking for linked scans…';
+  $('#building-scan-choice').replaceChildren(new Option('Select a capture',''));$('#building-linked-list').replaceChildren();
+  try {
+    const [links,r,h]=await Promise.all([readBuildingLinks(target),fetch('/api/sessions'),fetch('/api/health')]);
+    if(!r.ok||!h.ok)throw Error('Could not load captures.');
+    const [sessions,health]=await Promise.all([r.json(),h.json()]);
+    if(version!==buildingVersion)return;
+    buildingLinks=links;
+    const linked=sessions.filter(s=>links.some(l=>l.sessionId===s.id));
+    buildingFilter=linked.map(s=>s.id);
+    lastSessionSignature='';await refresh();
+    if(version!==buildingVersion)return;
+    if(linked.length){const newest=linked.sort((a,b)=>b.created_at-a.created_at)[0];await selectSession(newest,health);}
+    else notice('No scans linked to this location. Use Show all scans to browse other captures, or attach a capture here.');
+  }catch(error){if(version===buildingVersion){lastSessionSignature='';await refresh();notice(error.message);}}
+}
+async function changeBuildingLink(method,sid) {
+  if(!buildingTarget)return;
+  const target=buildingTarget;
+  if(!sid){notice('Choose a capture to attach.');return;}
+  $('#building-scan-attach').disabled=true;
+  try {
+    const url=method==='POST'?'/api/building-scans':`/api/building-scans/${encodeURIComponent(target.key)}/${sid}`;
+    const response=await fetch(url,{method,headers:{'Content-Type':'application/json','X-Capture-Token':$('#token').value},...(method==='POST'?{body:JSON.stringify({target:target.key,label:target.label,sessionId:sid})}:{})});
+    if(!response.ok){let detail;try{detail=(await response.json()).detail;}catch{}throw Error(typeof detail==='string'?detail:'Could not save link. Check the capture token and backend.');}
+    if(buildingTarget?.key===target.key)await openBuilding(target);
+  }catch(error){notice(error.message);}finally{$('#building-scan-attach').disabled=false;}
+}
+$('#building-scan-attach').onclick=()=>changeBuildingLink('POST',$('#building-scan-choice').value);
+$('#building-scan-all').onclick=()=>{++buildingVersion;buildingTarget=null;buildingFilter=null;buildingLinks=[];resetScanDashboard();$('#building-scan-context').hidden=true;refresh();notice('Showing all captures. Saved building links are unchanged.');};
+
+if(new URLSearchParams(location.search).get('embedded')==='1') {
+  document.body.classList.add('embedded-studio');
+  $('#tab-scans').click();
+  window.addEventListener('message',event=>{
+    if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='rover:select-building')return;
+    const target=event.data.target;
+    if(target&&/^(building|evaluation):[0-9]{1,12}$/.test(target.key)&&typeof target.label==='string')openBuilding({key:target.key,label:target.label.slice(0,200)});
+  });
+}

@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from .capture import prepare
-from . import lota, live
+from . import lota, live, gaussian
 
 ROOT=Path(__file__).resolve().parents[1]
 DATA=Path(os.environ.get('HTV_DATA_DIR',str(ROOT/'data'/'sessions')));DATA.mkdir(parents=True,exist_ok=True)
@@ -34,11 +34,12 @@ def public(p):
     s=json.loads((p/'session.json').read_text())
     if s.get('source')!='lota':s['frames']=len(list(p.glob('frame_*.json')))
     s['cloud_url']=f'/api/sessions/{p.name}/assets/cloud.ply' if (p/'cloud.ply').exists() else None
+    s['splat_url']=f'/api/sessions/{p.name}/assets/scene.ply' if (p/'scene.ply').exists() else None
     s['trajectory_url']=f'/api/sessions/{p.name}/assets/trajectory.json' if (p/'trajectory.json').exists() else None
     return s
 
 @app.get('/api/health')
-def health():return {'ok':True,'capture_token_required':bool(TOKEN)}
+def health():return {'ok':True,'capture_token_required':bool(TOKEN),'brush':bool(gaussian.brush_binary(ROOT))}
 
 @app.get('/api/sessions')
 def sessions():return [public(p) for p in sorted(DATA.iterdir(),reverse=True) if p.is_dir() and (p/'session.json').exists()]
@@ -65,15 +66,21 @@ async def upload(sid:str,name:str,request:Request):
 
 @app.get('/api/sessions/{sid}/assets/{name}')
 def asset(sid:str,name:str):
-    if name not in ['cloud.ply','trajectory.json']:raise HTTPException(404)
+    if name not in ['cloud.ply','trajectory.json','scene.ply','train.log']:raise HTTPException(404)
     p=folder(sid)/name
     if not p.is_file():raise HTTPException(404)
     return FileResponse(p)
 
-def work(p):
+def work(p,train=False):
     """Prepare geometry for a RoverCapture session (LOTA imports arrive already prepared)."""
     try:
-        status(p,status='preparing',error=None);result=prepare(p);status(p,**result,status='prepared')
+        imported=json.loads((p/'session.json').read_text()).get('source')=='lota'
+        if not imported:
+            status(p,status='preparing',error=None);result=prepare(p);status(p,**result,status='prepared')
+        if train:
+            binary=gaussian.brush_binary(ROOT)
+            if not binary:raise ValueError('Brush is not installed. Run python3 scripts/install_brush.py or set BRUSH_BIN.')
+            status(p,status='training',error=None);gaussian.train(p,binary);status(p,status='ready',error=None)
     except Exception as e:status(p,status='failed',error=str(e))
     finally:
         with lock:active.discard(p.name)
@@ -130,3 +137,18 @@ async def live_socket(ws:WebSocket):
             await (ws.send_bytes(message) if isinstance(message,bytes) else ws.send_json(message))
     except (WebSocketDisconnect,RuntimeError):pass
     finally:live.hub.unsubscribe(queue)
+
+
+@app.post('/api/sessions/{sid}/train')
+async def train_gaussians(sid:str,request:Request):
+    authorize(request);p=folder(sid)
+    if not gaussian.brush_binary(ROOT):raise HTTPException(503,'Brush is not installed. Install Brush or set BRUSH_BIN.')
+    with lock:
+        if active:raise HTTPException(409,'Another processing job is running; wait for it to finish')
+        active.add(sid)
+    status(p,status='queued',error=None)
+    pool.submit(work,p,True)
+    return {'queued':True}
+
+from .building_scans import create_router as building_scans_router
+app.include_router(building_scans_router(DATA, folder, authorize))

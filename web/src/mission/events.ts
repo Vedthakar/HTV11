@@ -28,8 +28,8 @@ export function missionEvents(m: Mission): MissionEvent[] {
       events.push({id: `${s.id}:scan`, t: s.departedAt, kind: 'scan-failed', label: 'Scan incomplete', detail: `${onSite} · re-scan needed`, siteId: s.id, status: 'failed'});
       continue;
     }
-    events.push({id: `${s.id}:scan`, t: s.departedAt, kind: 'scan', label: 'Scan complete',
-      detail: s.hazards.length ? onSite : `${onSite} · no hazards`, siteId: s.id, status: s.hazards.length ? 'hazards' : 'cleared'});
+    events.push({id: `${s.id}:scan`, t: s.departedAt, kind: 'scan', label: s.simulated?'Simulated stop complete':'Scan complete',
+      detail: s.simulated?'Simulation only · no inspection performed':s.hazards.length ? onSite : `${onSite} · no hazards`, siteId: s.id, status: s.hazards.length ? 'hazards' : 'cleared'});
     if (s.hazards.length) events.push({id: `${s.id}:hazards`, t: s.departedAt, kind: 'hazards', label: `${plural(s.hazards.length, 'hazard')} flagged`,
       detail: s.hazards.map(h => h.type).join(', '), siteId: s.id, status: 'hazards'});
   }

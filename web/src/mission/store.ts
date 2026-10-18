@@ -111,6 +111,12 @@ export class MissionStore {
     this.dirty = true;
   }
 
+  loadSurvey(mission: Mission) {
+    this.disconnectLive();this.source=null;this.liveMissions.clear();
+    this.replayMissions=[mission];this.time=mission.startedAt;this.last=0;this.dirty=true;
+    this.set({mode:'replay',missions:[mission],activeId:mission.id,playing:true,selectedSiteId:null,reportOverrides:{},follow:true,followDetached:false,isMock:true,liveComplete:false,feed:'closed'});
+  }
+  stopSurvey() { if(this.active.id.startsWith('SURVEY-'))this.pause(); }
   setActive(id: string) { this.set({activeId: id}); this.dirty = true; }
   select(siteId: string | null) { this.set({selectedSiteId: siteId}); }
   setFollow(follow: boolean) { this.set({follow, followDetached: false}); this.dirty = true; }
