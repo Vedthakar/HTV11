@@ -1,6 +1,6 @@
-# HTV Rover — iPhone LiDAR to an explorable 3D capture
+# Premiere — Rover-Mounted iPhone LiDAR to an explorable 3D capture
 
-Local starter project for an iPhone 17 Pro mounted on a robot car. Capture RGB, LiDAR depth/confidence and ARKit camera poses, upload to this Mac, build geometry, and explore the point cloud. This project uses Apple's frameworks, Three.js, SparkJS, and Brush directly.
+Local starter project for an iPhone 17 Pro mounted on an autonomous robot car. Capture RGB, LiDAR depth/confidence and ARKit camera poses, upload to this Mac, build geometry, and explore the point cloud. This project uses Apple's frameworks, Three.js, SparkJS, and Brush directly.
 
 ## Start on the laptop (Windows or macOS)
 
