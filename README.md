@@ -186,6 +186,7 @@ Built at **Hack the Valley 11**, where it won.
 | **Maggie Wu** ([@magi-wuu](https://github.com/magi-wuu)) | iPhone LiDAR capture and the 3D reconstruction studio; proposed buildings, placement and replacement regions |
 | **Kevin Pogoryelovskyy** ([@KelvinPogo](https://github.com/KelvinPogo)) | Mission map and dashboard, LOTA importer, live preview, map features |
 | **Ved Thakar** ([@Vedthakar](https://github.com/Vedthakar)) | Rover drive software: path planner, Pi motor server, calibration and the C drive program; LiDAR viewer tools (height colouring, measure) |
+| **Vedant Kansara** ([@vedantkminiai](https://github.com/vedantkminiai)) | Custom rover hardware assembly and integration; repurposed and disassembled an RC robot, wired Raspberry Pi 4B, motor controller, DC motors and battery pack; programmed robot movement using Python |
 
 ## Data and credits
 
