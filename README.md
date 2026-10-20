@@ -1,312 +1,192 @@
+<div align="center">
+
+<img src="assets/mission-map.jpg" alt="Premiere mission map: a rover's survey of downtown Toronto with its mission log and live telemetry" width="100%" />
+
+<br />
+
 # Premiere
 
-An iPhone on a small rover records LiDAR. This repo lets you inspect that capture, and it gives the car a path to drive.
+**A rover with an iPhone on top drives a route, scans buildings with LiDAR, and turns each scan into a 3D model you can inspect in the browser.**
 
-- **Capture and view.** LOTA (or the legacy RoverCapture app) sends RGB, depth, and camera poses to the laptop. The studio loads the point cloud and Gaussian splat in Three.js.
-- **Inspect.** Pin notes on the scan, colour the cloud by height, and measure a distance between two points.
-- **Drive.** Draw a path on the Mac. The Pi follows it open-loop after the cable is unplugged. See [rover/README.md](rover/README.md).
-- **Map.** The landing page replays a Toronto survey mission. The route playback is simulated until a live telemetry socket is connected.
+<br />
 
-Apple's frameworks, Three.js, SparkJS, and Brush do the reconstruction work. Motor control lives in `rover/` and does not avoid obstacles or close the loop with the LiDAR.
+[![Hack the Valley 11 Winner](https://img.shields.io/badge/Hack%20the%20Valley%2011-Winner-F25C24?style=flat-square)](https://github.com/Vedthakar/HTV11)
+[![Three.js](https://img.shields.io/badge/Three.js-0.180-000000?style=flat-square&logo=three.js&logoColor=white)](https://threejs.org)
+[![React + TypeScript](https://img.shields.io/badge/React-TypeScript-3178C6?style=flat-square&logo=react&logoColor=white)](web/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Python%203.12-009688?style=flat-square&logo=fastapi&logoColor=white)](backend/)
+[![ARKit LiDAR](https://img.shields.io/badge/iPhone-LiDAR-111111?style=flat-square&logo=apple&logoColor=white)](docs/CAPTURE.md)
+[![Raspberry Pi](https://img.shields.io/badge/Rover-Raspberry%20Pi-C51A4A?style=flat-square&logo=raspberrypi&logoColor=white)](rover/)
 
-## Start on the laptop (Windows or macOS)
+[Quickstart](#quickstart) · [Features](#features) · [How it works](#how-it-works) · [The rover](#the-rover) · [Docs](#documentation) · [Team](#team)
 
-One-time setup (needs Python 3.12+ and Node 22+):
+</div>
+
+---
+
+## What is Premiere?
+
+**City building inspections, from a rover instead of a clipboard.**
+
+Premiere plans an inspection route through Toronto from public building data, drives a small rover along it, and scans each stop with an iPhone's LiDAR. The scans land in a 3D studio where an inspector can walk around the point cloud, measure it, pin notes to what they see, and preview a proposed replacement building in place.
+
+It is three pieces that work together:
+
+| Piece | What it does | Built with |
+|---|---|---|
+| **Mission map** | Picks low-scoring apartment buildings, plans a walking route, and replays the rover's survey with live telemetry | React, TypeScript, MapLibre GL |
+| **Capture studio** | Imports LiDAR scans, renders point clouds and Gaussian splats, and adds inspection tools | Three.js, SparkJS, FastAPI, Brush |
+| **Rover** | Drives a drawn path from a Raspberry Pi and a Grove I2C motor driver | Python, C, systemd |
+
+---
+
+## Features
+
+**Mission map** (`/`)
+- 🗺️ **557,694 Toronto building outlines**, coloured by the City's apartment evaluation score and loaded tile by tile.
+- 🧭 **Inspection route planner**: picks the lowest-scoring buildings nearby and routes a walk between them, with GeoJSON export.
+- 📡 **Live and replay modes**: a mission log you can scrub, a particle trail behind the rover, and a telemetry card for battery, signal, speed and scan progress.
+
+**Capture studio** (`/studio.html`)
+- 📥 **One-drop LiDAR import** from the LOTA iPhone app: it removes pose spikes from bumps, filters floating points, and thins the cloud to 1 cm.
+- ✨ **Gaussian splats**: trains a photoreal splat from the same capture with Brush.
+- 🎨 **Height colouring and scan-scaled points**, so floors, walls and overhangs read clearly on any size of scan.
+- 📏 **Measure**: click two points on the scan to get the distance between them.
+- 📌 **Inspection notes** pinned to a 3D point, with a photo from the capture as evidence.
+- 🏠 **Proposed building preview**: a configurable house you can move, rotate and compare against the existing scan, with the old building cut out.
+
+**Rover** (`rover/`)
+- ✏️ **Draw a path on the laptop** (or pick a circle, figure 8 or square) and preview what the car will actually do.
+- 🔌 **Unplug to drive**: the Pi stores the mission and starts it a few seconds after the cable comes out.
+- 🔧 **Calibration tools** for steering, speed and the motor's minimum power, plus a point-turn for tight spaces.
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+    A["City data<br/>building outlines +<br/>evaluation scores"] --> B["Mission map<br/>plan inspection route"]
+    B --> C["Rover<br/>Pi drives the path"]
+    C --> D["iPhone LiDAR<br/>(LOTA app)"]
+    D -->|ZIP or live stream| E["FastAPI backend<br/>clean · thin · train splat"]
+    E --> F["Capture studio<br/>point cloud + splat"]
+    F --> G["Inspect<br/>measure · notes · proposals"]
+    F -. linked to building .-> B
+```
+
+1. **Plan.** The mission map scores buildings from City of Toronto data and routes a walk to the ones that need attention first.
+2. **Drive.** The rover's path planner turns a drawn path into steering and throttle commands at 50 Hz, then drives it open-loop when the tether is pulled.
+3. **Scan.** An iPhone on the rover records RGB, LiDAR depth and camera poses with LOTA, as a ZIP or as a live point stream.
+4. **Process.** The backend cleans and thins the cloud and can train a Gaussian splat with Brush.
+5. **Inspect.** The studio loads the result for measuring, notes and design proposals, linked back to the building on the map.
+
+---
+
+## Quickstart
+
+You need **Python 3.12+** and **Node 22+**. Works on macOS and Windows.
 
 ```bash
-npm run setup                                  # .venv + backend packages + web packages
+git clone https://github.com/Vedthakar/HTV11.git
+cd HTV11
+npm run setup        # Python venv, backend packages, web packages
 ```
 
-`scripts/py.mjs` runs the venv's Python on either OS, so every npm script works on Windows and macOS.
-Terminal 1: `npm run backend` (or `npm run backend:lan` for the live stream; see below)
-Terminal 2: `npm run dev`
-
-Open **http://127.0.0.1:5175** for the rover mission map; the capture studio is at **/studio.html**. Backend: http://127.0.0.1:8008/docs.
-
-## Scan with LOTA (recommended capture path)
-
-LOTA (LiDAR Over the Air) replaces the custom RoverCapture app. Settings for a rover-mounted phone:
-
-1. Camera page → Point Cloud mode → **Point Cloud Settings**: Min Confidence **High Only**, Max Depth **3–4 m**.
-2. Swipe right to the capture page, choose **N + Depth** (Nerfstudio + Depth; COLMAP also works), Capture Settings → Capture Rate **30 Hz**.
-3. Folder icon (bottom left) → pick an iCloud Files folder. Record while driving slowly (~0.2–0.3 m/s, stop before turns). LOTA rejects motion-blurred frames and only keeps keyframes after 5 cm / 5° of motion.
-4. Get the `LOTA_<timestamp>_<MODE>.zip` to the laptop and either click **Import LOTA capture**, drop it on the page, or watch the synced folder:
+Then, in two terminals:
 
 ```bash
-npm run watch -- "C:\Users\<you>\iCloudDrive\<folder>"
+npm run backend      # API on http://127.0.0.1:8008 (docs at /docs)
+npm run dev          # web app on http://127.0.0.1:5175
 ```
 
-The importer (`backend/lota.py`) accepts Nerfstudio, Nerfstudio + Depth, COLMAP binary and PLY-only exports. It drops single-frame pose spikes (rover jolts), warns about permanent path jumps (tracking relocalised), removes isolated floaters, thins the cloud to 1 cm and caps it at 200,000 points for the viewer. The dataset (photos, depth, poses) is kept as exported; its photos back inspection observations. If a real export shows up rotated (Z-up), restart the backend with `HTV_LOTA_UP=z` (this rotates the point cloud and path). ZIP uploads are capped at 4 GB (`HTV_IMPORT_MAX_MB`).
+Open **http://127.0.0.1:5175** for the mission map and **http://127.0.0.1:5175/studio.html** for the capture studio.
 
-Without a phone: `npm run fixtures` writes clearly marked SYNTHETIC LOTA-style ZIPs to `data/lota_fixtures/`.
-
-### Live preview while driving (optional)
-
-Start `npm run backend:lan`, enable **Show live point stream**, and in LOTA send the PLY point stream to `<laptop IP>`:**9848** (TCP) and OSC to **9000** (UDP). Allow both ports (and 8008) through the firewall. If LOTA only connects out to a receiver it discovers, set `HTV_LOTA_PHONE=<phone IP>:9848` to have the laptop dial the phone instead. Whether LOTA streams world- or camera-space points is undocumented: if the cloud smears when the rover turns, choose **Camera coordinates (apply pose)**. Frames are thinned to 10 fps / 8,000 points. Anyone on the network can send to these ports, so use a trusted network. This is a preview; the imported ZIP is the map. Test without a phone: `npm run simulate-live` (add `-- --space camera` for the other mode).
-
-## Legacy: RoverCapture uploads from the iPhone
-
-Stop the loopback backend first. In the same terminal:
+No phone yet? Load test data:
 
 ```bash
-export HTV_CAPTURE_TOKEN="choose-a-team-token"   # PowerShell: $env:HTV_CAPTURE_TOKEN="..."
-npm run backend:lan
+npm run fixtures     # synthetic LOTA captures in data/lota_fixtures/
+npm run demo         # a synthetic capture session in the studio
 ```
 
-This deliberately listens on the local network on port 8008. Enter the same token in the iPhone app and the web viewer. Keep this development server on a trusted local network; don't port-forward it or expose it publicly. Upload/processing require the token when configured; read endpoints are intended for trusted teammates. HTTP is unencrypted and intended only for local development.
+Both are clearly labelled **SYNTHETIC** in the UI so they're never mistaken for a real scan.
 
-Phone and laptop must be on the same network. Some hackathon networks isolate clients; use a network that permits device-to-device connections.
+---
 
-## Install the RoverCapture iPhone app (legacy, macOS + Xcode only)
+## The rover
 
-1. Open `ios/RoverCapture.xcodeproj` in Xcode.
-2. Select the RoverCapture target → Signing & Capabilities → your development team. If needed, change the bundle identifier to one unique to your team.
-3. Connect your iPhone, enable Developer Mode if prompted, select the phone, and Run. Xcode must support the iOS version installed on your iPhone; update Xcode if it reports the device OS is unsupported.
-4. Grant camera/local-network access. Enter `http://<MAC-WIFI-IP>:8008` and your capture token.
-5. Record a static scene for a short test. Capture runs at up to 2 fps and skips frames unless ARKit tracking is normal and depth is present.
-6. Stop, then Upload. Select the uploaded session in the web viewer.
-7. Click **Prepare geometry**, wait for `prepared`, then select the session again to load its point cloud.
-
-The app saves first to its Documents folder, accessible through Files/Finder file sharing. Upload is after capture, not live streaming. On upload failure, local data remains; retry creates a new server session. Backgrounding/interruption stops the scan to avoid silently mixing tracking coordinates.
-
-## First successful capture
-
-Start handheld before attaching to the rover. Use a textured, static scene with diffuse lighting, slow movement, substantial overlap, and several viewing angles. Keep the rear camera and LiDAR unobstructed. A straight forward-facing drive cannot capture surfaces behind objects or around unseen corners. ARKit can drift; tracking quality does not guarantee an accurate reconstruction.
-
-## What is implemented
-
-- Native SwiftUI/ARKit app: local images, raw depth/confidence, camera calibration/poses, upload.
-- FastAPI: sessions, bounded per-file streaming uploads, optional shared token, single-job processing queue, explicit errors and artifacts.
-- Python exporter: row-stride-free depth, confidence filtering, ARKit → world point cloud, ARKit → COLMAP camera conversion, COLMAP-format dataset and transforms.json.
-- Browser: real PLY point-cloud loader and SparkJS Gaussian-splat viewer, session status, fit/orbit/pan/zoom, local file import. Point size follows the scan diagonal (with a 40–250% slider). **Colour points by height** repaints the view from low blue to high amber without writing the file. **Measure** picks two captured vertices and shows the straight-line distance.
-
-## Drive the rover
-
-`rover/` is the car software: a path planner, a Mac page that previews the path, a Pi server for a Grove I2C motor driver, calibration scripts, and a small C program that drives straight after Ethernet is unplugged.
+The car runs from `rover/`: a Raspberry Pi with a Grove I2C motor driver, one rear drive motor and front steering.
 
 ```bash
-cd rover && python3 tests/test_planner.py && python3 tests/test_unplug.py
-cd rover/mac && python3 server.py    # http://localhost:8000
+# On your laptop: the path drawing page
+cd rover/mac && python3 server.py              # http://localhost:8000
+
+# On the Pi: install the path runner as a service
+cd ~/rover/pi && bash install.sh && sudo reboot
 ```
 
-Copy `rover/` to the Pi and run `bash install.sh` from `rover/pi`. Wiring, calibration, and the unplug trigger are in [rover/README.md](rover/README.md). The drive is open-loop dead reckoning. It does not stop for obstacles, and it does not use the phone's LiDAR.
+Draw a path, upload it, unplug the cable, and the car drives it. Wiring, calibration and the standalone C straight-drive program are covered in **[rover/README.md](rover/README.md)**.
 
-## What still needs hardware work
+> [!NOTE]
+> The drive is open-loop dead reckoning: it doesn't avoid obstacles or use the LiDAR to correct itself. Calibrate on the floor you'll drive on, since smooth floors cause the car to understeer.
 
-- iPhone signing and an end-to-end scan on a physical phone.
-- A check of real tracking quality and processing time.
-- Closed-loop driving: obstacle avoidance, wheel odometry, or a gyro. The open-loop planner above does not do this.
-- Live streaming is a preview. The imported ZIP is the map.
+---
 
-## Architecture
+## Documentation
+
+| Guide | Covers |
+|---|---|
+| [docs/CAPTURE.md](docs/CAPTURE.md) | Scanning with LOTA, live preview, the legacy RoverCapture iPhone app, capture format |
+| [docs/STUDIO.md](docs/STUDIO.md) | Viewer tools, inspection notes, proposed buildings, Gaussian splats |
+| [docs/MISSION_MAP.md](docs/MISSION_MAP.md) | Mission map, telemetry WebSocket protocol, Toronto data and route planning |
+| [rover/README.md](rover/README.md) | Rover wiring, install, calibration, path upload |
+| [VERIFICATION.md](VERIFICATION.md) | What has been tested and how |
+
+---
+
+## Project structure
 
 ```
-ios/RoverCapture/              SwiftUI interface, ARKit recorder, local storage, uploader
-backend/main.py                FastAPI routes and background job coordination
-backend/capture.py             Coordinate conversion and dataset preparation
-web/src/main.js                Three.js point/splat rendering and session controls
-web/src/cloud-view.js          Point size and height colour for the LiDAR cloud
-web/src/measure.js             Two-point distance on the cloud
-rover/                         Path planner, Pi motor server, Mac drawing UI, C straight-drive
-scripts/demo_capture.py        Explicitly synthetic fixture (never shown as a real scan)
-tests/test_pipeline.py         Geometry-convention, corrupt-input, upload, and job tests
-data/sessions/<id>/            Raw capture, dataset, cloud.ply, trajectory.json
+web/                React mission map + Three.js capture studio (Vite)
+  src/mission/      telemetry sources, playback store, mission events
+  src/map/          MapLibre controller, basemap restyle, particle trail
+  src/main.js       studio: point cloud and splat rendering
+backend/            FastAPI: sessions, LOTA import, live stream, notes, splat training
+rover/              path planner, Pi motor server, calibration, Mac drawing UI, C drive
+ios/RoverCapture/   legacy SwiftUI + ARKit capture app
+scripts/            city data preparation, fixtures, Brush installer
+tests/              Python pipeline and API tests
 ```
 
-The capture format uses `frame_000001.jpg`, `.depth`, `.confidence`, `.json`. JPEG is saved in the camera buffer's raw orientation. Matrices are serialized row-major; the camera transform is ARKit camera-to-world (+x right, +y up, -z forward). Depth is contiguous little-endian float32 in metres; confidence is uint8 (0/1/2). Image and depth calibration are scaled consistently. The COLMAP export inverts poses and flips camera y/z. Don't rotate JPEGs independently of their intrinsics/poses.
-
-`transforms.json` is a convenient alternate export. The dataset's `images/` and `sparse/0/` hold COLMAP-format cameras and LiDAR initialization points. Large captures are capped to 200,000 sampled geometry points; this is not a watertight mesh, certified measurement, or collision map.
-
-## Checks
+## Tests
 
 ```bash
-npm test
+npm test             # Python backend tests + web unit tests
+npm run typecheck
 npm run build
-xcodebuild -project ios/RoverCapture.xcodeproj -scheme RoverCapture -sdk iphoneos -configuration Debug -derivedDataPath .build/ios CODE_SIGNING_ALLOWED=NO build
+cd rover && python3 tests/test_planner.py && python3 tests/test_unplug.py
 ```
 
-`npm run demo` adds a clearly marked **SYNTHETIC TEST CAPTURE** to verify geometry/viewer plumbing without a phone. It is a small planar checkerboard, not a real room reconstruction. Remove its directory under `data/sessions/` when no longer needed.
+---
 
-## Reinstall dependencies
+## Limitations
 
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r backend/requirements.txt
-npm --prefix web ci --cache "$PWD/.npm-cache"
-```
+- **Scans are visual, not surveyed.** Point clouds are capped at 200,000 points and aren't certified measurements. An observation records what's visible; it isn't a structural safety assessment.
+- **Route playback is simulated** until a rover connects to the telemetry socket. Routes use pedestrian walking directions, so rover clearance and entrances aren't checked.
+- **The rover drives open-loop.** No obstacle avoidance, wheel odometry or gyro yet.
+- **Evaluation scores** come from the City's published dataset, not a live feed.
 
-## References
-- SparkJS renderer: https://sparkjs.dev/docs/
-- ARKit: https://developer.apple.com/documentation/arkit
+---
 
-A Gaussian splat is a visual reconstruction; autonomous navigation requires a separate mapping/planning/control system.
+## Team
 
-## What has been checked
+Built at **Hack the Valley 11**, where it won.
 
-Pipeline tests cover known geometry and pose conversion, missing or corrupt depth, authenticated uploads, and background preparation. The Vite production build has passed. An unsigned Xcode device build passed with the iOS 18.1 SDK; an iPhone 17 Pro on a newer iOS may need a newer Xcode. The synthetic point cloud has been rendered in the browser. Brush v0.3.0's checksum matches and its CLI starts; a training smoke test needs a Metal GPU, so run that from a normal Terminal. A real phone capture and a full Gaussian training run are still unverified. Rover planner tests do not need a Pi.
+| | Highlights |
+|---|---|
+| **Maggie Wu** ([@magi-wuu](https://github.com/magi-wuu)) | iPhone LiDAR capture and the 3D reconstruction studio; proposed buildings, placement and replacement regions |
+| **Kevin Pogoryelovskyy** ([@KelvinPogo](https://github.com/KelvinPogo)) | Mission map and dashboard, LOTA importer, live preview, map features |
+| **Ved Thakar** ([@Vedthakar](https://github.com/Vedthakar)) | Rover drive software: path planner, Pi motor server, calibration and the C drive program; LiDAR viewer tools (height colouring, measure) |
 
-## Rover mission map (operator tracking view)
+## Data and credits
 
-The landing page (`web/index.html`, React + TypeScript + MapLibre GL) tracks rovers through Toronto: watch a mission **LIVE** or **REPLAY** a finished one. It uses a light-grey "point cloud" look: buildings are dotted LiDAR-style textures; the rover sheds a particle trail; and each site appears as a LiDAR ping (rings sweep out, a reticle locks on, a status chip with a mini scan thumbnail slides out). The left-hand mission log lists timestamped events (click one to seek there) under a slim play/scrub strip; the bottom-right card shows battery, signal, speed, scan progress and distance travelled. It runs on the same `npm run dev`; no API keys or paid services. Everything shown today is **demo data** (the HUD says `DEMO DATA`): two simulated rovers on street-following routes in Fort York / Liberty Village, with sites labelled by neighbourhood only.
-
-- Controls: `Space` play/pause, `←/→` seek 30 s, `Ctrl/⌘ K` find a site or rover, `Esc` close, `N` reset north, `F` follow rover. Right-drag or Ctrl-drag rotates and tilts.
-- Click a site's chip for the site panel (hazards flagged for follow-up, times, report status). "Confirm & submit report" and "View 3D scan" are stubs; submitting will later hand off to the reporting agent.
-- Code: `web/src/mission/` holds types, mock data, the telemetry sources, pure track maths, mission events and the playback store; `web/src/map/` the basemap restyle, particle trail canvas (`ParticleTrail.ts`), site pings and scan thumbnails, and the imperative MapLibre controller; `web/src/components/` the React UI. Per-frame updates bypass React.
-- Basemap: OpenFreeMap Liberty, forked in `web/src/map/liberty.json` and recoloured in `restyle.ts`. Hillshade uses AWS Terrarium DEM tiles. 3D terrain is opt-in with `?terrain=1`: Toronto is flat, and in MapLibre 5.6 runtime-added route lines vanish under the 3D buildings when terrain is on, so in that mode the route draws above the buildings.
-- Mock routes come from `node scripts/build_mock_route.mjs`, which snaps intersection waypoints to streets with the public OSRM foot router once and writes `web/src/mission/mock-route.json`. The app never calls the router.
-
-### Real telemetry
-
-LIVE mode uses `MockTelemetrySource` (the demo mission re-run at 30×) unless `VITE_ROVER_TELEMETRY_URL` is set or the page is opened with `?telemetry=ws`. Then `WebSocketTelemetrySource` connects to that URL, or by default to `ws://<host>/api/rover/telemetry` (Vite already proxies `/api` with WebSockets to the backend). That endpoint does not exist yet; add it to `backend/main.py`. The source reconnects with backoff.
-
-Send one JSON object per text message. Times are epoch ms; coordinates are `[lng, lat]`:
-
-```jsonc
-{"type": "mission", "mission": {"id": "M-1017-A", "roverId": "ROVER-01", "startedAt": 1792256700000, "plannedEndAt": 1792264509000,
-  "plannedRoute": [[-79.3945, 43.6436], ...], "track": [], "color": "#C8642A",
-  "sites": [{"id": "SITE-01", "label": "SITE 01", "area": "Fort York", "coord": [-79.4002, 43.6393], "status": "pending", "hazards": [], "reportStatus": "draft"}]}}
-{"type": "telemetry", "missionId": "M-1017-A", "point": {"t": 1792256702000, "coord": [-79.3946, 43.6436], "heading": 254, "speed": 1.4, "batteryPct": 99.9, "signalPct": 82}}
-{"type": "site", "missionId": "M-1017-A", "site": {"id": "SITE-01", "status": "inspecting", "arrivedAt": 1792257480000}}
-{"type": "site", "missionId": "M-1017-A", "site": {"id": "SITE-01", "status": "hazards", "departedAt": 1792258140000, "hazards": [{"type": "Water damage", "confidence": "high"}]}}
-{"type": "end", "missionId": "M-1017-A", "endedAt": 1792264509000}
-```
-
-Send `mission` first, and again after a reconnect. `site` messages are partial updates merged by `id`; status runs `pending` → `inspecting` → `cleared` | `hazards` | `failed`. `batteryPct` and `signalPct` are optional (the telemetry card shows — without them). The scan thumbnails are simulated until real scan renders are wired to `scanPreviewUrl`. Telemetry points must arrive in time order; the map interpolates between them, so 1–2 Hz is plenty. The wire format is also documented at the top of `web/src/mission/telemetry.ts`.
-
-## Inspection observations
-
-Restart the backend after updating the code (Ctrl+C, then `npm run backend:lan` in the same terminal to retain your token environment). Refresh the browser.
-
-1. Select a saved capture and prepare geometry if needed.
-2. Open its point cloud. If viewing a splat, use **Open point cloud for placement**.
-3. Choose **Add observation**, then click a captured surface. Dragging does not create a pin; Escape cancels placement.
-4. Enter a title/description and optionally select an original capture photo. Photo association is manual; check the image actually documents the pin location.
-5. Save. Click the marker or its list entry to edit it and select **Unreviewed**, **Confirmed observation**, or **Dismissed**.
-6. Reload and reselect the session: records and pins are restored from `data/sessions/<id>/observations.json`.
-
-Local PLY files can be viewed but must belong to a saved server session before persistent observations can be created. Pins can be viewed over splats in that session's shared coordinates; placement uses the LiDAR point cloud. Original capture photos can be opened at full size from the evidence preview. A confirmed observation records review of a visible feature; it is not a structural-safety determination.
-
-New modules: `web/src/pins.js` (Three.js picking/markers), `web/src/observations.js` (form/state/API), `backend/observations.py` (validated routes, atomic JSON storage, original-photo endpoints).
-
-Observation verification: four additional API tests cover disk persistence with a fresh router, token/field validation, source-photo scope, and cross-session isolation. Browser QA on isolated synthetic data covered placement, save, reload, status edit, evidence preview, and clicking a 3D marker. Existing real captures were not modified by QA.
-
-## Parameter-built proposed house (feature 2)
-
-In the sidebar, enable **Show proposed house**. Sliders update width (3–16 m), depth (3–20 m), floors (1–3), and roof height (0.4–4 m). Change wall colour or include/remove the front porch. **Focus house** frames the proposal; **Fit view** frames both scan and proposal. **Reset house dimensions** restores defaults.
-
-The model is built by `buildHouse(parameters)` in `web/src/house.js` from boxes, window frames/panes, a triangular extruded roof, and optional porch geometry. It lives in its own Three.js group and is automatically previewed beside the scan at the scan bounding box's lowest Y value. That is a preview anchor, not a detected ground plane or surveyed placement. Parameters stay while switching scans but reset on page reload. Floor height is fixed at 2.8 m.
-
-The proposed house has no AI, interior rooms, construction plans, or building replacement. Feature 3 adds the placement and comparison tools described below. The house can also be previewed before loading any scan. Observation pins remain attached to the captured point cloud, not the proposed house.
-
-## House placement and comparison (feature 3)
-
-Enable **Show proposed house**, then use the controls under **Placement**:
-
-- X / Z move across scan coordinates; Y raises or lowers the house.
-- Rotation turns the house around its vertical axis.
-- Uniform scale multiplies the whole house (0.1–5); the scaled footprint/height readout updates accordingly.
-- **Move gizmo** attaches draggable arrows/planes; **Rotate gizmo** shows a vertical-axis rotation ring. Orbit controls pause during a gizmo drag. Click **Finish placement**, toggle the active tool, or press Escape to return to normal exploration.
-- **Reset placement beside scan** restores the automatic preview anchor, rotation 0, and scale 1. It does not change house dimensions.
-- Changing house dimensions preserves manual placement. Switching between point cloud and splat in the same session also preserves placement. A different capture resets the anchor; page reload resets the design and placement.
-
-View modes share the same camera, which does not move when toggling:
-
-- **Existing**: captured scene and observation pins; proposed house hidden.
-- **Proposed**: captured scene plus solid proposed house.
-- **Compare**: wireframe/translucent proposal plus footprint over the unchanged capture. This is an overlay comparison, not a split screen.
-
-No captured building is removed, and no ground plane is automatically inferred. Scan scale/alignment needs verification before treating proposal dimensions or placement as surveyed values. Placement changes affect only the proposed group, not the source geometry or saved observations.
-
-The viewer uses Three.js TransformControls. Observation placement and house-gizmo editing are mutually exclusive to avoid accidental note placement while moving a house.
-
-### Replacement region (feature 5)
-
-Load a scan, enable **Show proposed house**, then enable **Hide capture inside a box**.
-Use the orange outline and Center X/Y/Z plus Width/Height/Depth fields to enclose
-what should disappear. **Fit box to proposed house** copies the current proposal's
-world bounding box; **Fit box to entire scan** selects all captured geometry.
-The region stays fixed when the house moves. Existing restores the original;
-Proposed and Compare hide the selected capture region. Observation markers within
-the hidden region are also hidden, while their saved notes remain available.
-
-This is an axis-aligned visual cutout, not semantic building removal: everything
-inside is hidden, including ground. It supports point clouds through a separate
-indexed preview geometry and Gaussian splats through Spark's box opacity edit.
-Gaussian edges can extend across the boundary. Original capture files remain
-unchanged. Regions reset for a different capture and on page reload.
-
-Verify region filtering and restoration with:
-
-```sh
-node --test web/tests/replacement.test.js
-```
-
-### Gaussian splats restored in Capture Studio
-
-Select a saved capture under Scans, then **Train Gaussian splat**. The backend
-prepares RoverCapture photos/poses and LiDAR geometry, then runs Brush for 1,500
-steps with a 720 px maximum image resolution. LOTA imports with camera data can
-also train; PLY-only imports cannot. **Open Gaussian splat** opens an existing
-result; **Open point cloud for placement** in Notes returns to pin placement.
-The selected capture opens automatically when its training finishes.
-
-Restart the backend from this checkout to register POST `/api/sessions/{id}/train`.
-Keep your existing capture token and HTV_DATA_DIR settings. The old backend from
-another checkout may show old captures but does not necessarily support this endpoint.
-Health reports `brush`; session responses include `splat_url`. Training logs are
-available at `/api/sessions/{id}/assets/train.log`. A failed training run preserves
-previous scene.ply and the point cloud.
-
-Brush is bundled locally in ignored `tools/brush_app`, copied from the existing
-HTV installation. On another machine, run `python3 scripts/install_brush.py` or
-set BRUSH_BIN to an installed executable. This change was checked with mocked
-training/export tests; a new GPU training run is not automatically started.
-
-
-## Consolidated Toronto dashboard
-
-The dashboard at `/` now includes the integrated HTV civic features:
-557,694 Toronto building-outline features loaded by geographic tile; apartment
-score colours and location markers; selected building metadata; and an inspection
-route planner using the public FOSSGIS pedestrian routing service. Use the civic
-panel's **Plan inspection route** button. Default cutoff is 75, capped at eight
-stops in a 2 km radius/current view, with configurable settings and GeoJSON export.
-Cyan survey routes are proposals, not hardware commands; the orange mission
-playback and hazard reports remain labelled demo data. Entrances and rover
-clearance are not verified by pedestrian routing.
-
-Clicking a real building stays on the map and prepares that location in **Scan
-viewer**. The existing tabbed Capture Studio is embedded there, retaining LOTA
-imports, live capture, rover paths, Gaussian training, notes and text labels.
-No linked scans shows an empty list with **Show all scans**. Existing captures can
-be attached explicitly; links persist in HTV_DATA_DIR/building-scans.json and use
-the capture token. The backend must be restarted from this checkout to register
-both building links and Gaussian training.
-
-The city data resides in web/public/city; include it when deploying. Apartment
-scores reflect the supplied CSV, not a live feed or structural assessment. Grey
-means no score match. Records use latest evaluations by RSN and unambiguous
-coordinate-in-footprint association; unmatched records remain dots. Where several
-records share a footprint its colour uses the lowest score. The planner selects
-lower scores and orders them heuristically, without a shortest-route guarantee.
-
-Preparation scripts: scripts/prepare_city_tiles.py and
-scripts/prepare_evaluations.py. City data: Toronto Topographic Mapping Building
-Outlines and Apartment Building Evaluations. Contains information licensed under
-the Open Government Licence – Toronto. External basemap: OpenFreeMap/OSM;
-routing: FOSSGIS/OSRM, requiring internet and sending public waypoint coordinates.
-
-Validation: npm --prefix web run build; npm --prefix web run typecheck;
-node --test web/tests/*.test.js; Python test_building_scans.py and test_gaussian.py.
-
-### Planned survey drives simulated playback
-
-A successful survey plan now replaces the bundled demo mission with a SURVEY-SIM
-mission. Its track uses the returned pedestrian-route geometry, stops are timed
-from the route leg distances, speed is modelled at 1.2 m/s, and each visit has a
-30-second simulated dwell. Playback starts automatically at the existing speed
-multiplier, with follow enabled. Pause, seek and speed controls operate on this
-new track; the old demo rover/path is removed. Clear/replan pauses the previous
-survey. Selecting LIVE can still switch to the existing telemetry feed; REPLAY
-returns to the planned survey. This remains simulation only: no scans, hazards
-or safety conclusions are generated by visiting a stop.
+City data: [Toronto Topographic Mapping, Building Outlines](https://open.toronto.ca/dataset/topographic-mapping-building-outlines/) and [Apartment Building Evaluations](https://open.toronto.ca/dataset/apartment-building-evaluation/). Contains information licensed under the [Open Government Licence – Toronto](https://open.toronto.ca/open-data-licence/). Basemap by [OpenFreeMap](https://openfreemap.org) and © OpenStreetMap contributors. Routing by FOSSGIS / OSRM. Rendering by [Three.js](https://threejs.org), [SparkJS](https://sparkjs.dev) and [Brush](https://github.com/ArthurBrussee/brush). Capture with LOTA (LiDAR Over the Air) and Apple ARKit.
