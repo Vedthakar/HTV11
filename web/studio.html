@@ -39,6 +39,11 @@
           <div id="session-info" class="session-info" role="status"></div>
           <div class="btn-row"><button id="prepare" class="btn" disabled hidden>Prepare geometry</button><button id="train" class="btn" disabled>Train Gaussian splat</button><button id="show-splat" class="btn" disabled>Open Gaussian splat</button></div>
           <label class="switch"><input type="checkbox" id="show-path" checked disabled><span>Show rover path</span></label>
+          <div id="cloud-view" hidden>
+            <label class="switch"><input type="checkbox" id="color-by-height"><span>Colour points by height</span></label>
+            <div class="range"><label for="point-size">Point size</label><output id="point-size-value">100%</output><input id="point-size" type="range" min="40" max="250" step="10" value="100"></div>
+            <p class="hint">Height colour runs from blue (low) to amber (high). It only changes this view, not the capture.</p>
+          </div>
         </div>
 
         <details class="disclosure">
