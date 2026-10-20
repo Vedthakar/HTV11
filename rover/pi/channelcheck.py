@@ -5,7 +5,7 @@ the drive/steer config), one at a time, so you can see which channel is the rear
 drive motor and which is the front steering -- and which direction each goes.
 
     sudo systemctl stop rc-car
-    cd ~/rc-path/pi
+    cd ~/rover/pi
     python3 channelcheck.py
 
 Run it with the WHEELS OFF THE GROUND. Watch each step and note:

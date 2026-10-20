@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run ON THE PI from the rc-path/pi folder:  bash install.sh
+# Run ON THE PI from the rover/pi folder:  bash install.sh
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 USER_NAME="$(whoami)"
@@ -12,7 +12,7 @@ CFG=/boot/firmware/config.txt; [ -f $CFG ] || CFG=/boot/config.txt
 grep -q "i2c_arm_baudrate" $CFG || echo "dtparam=i2c_arm_baudrate=20000" | sudo tee -a $CFG > /dev/null
 sudo usermod -aG gpio,i2c "$USER_NAME" || true
 
-sed -e "s#/home/pi/rc-path/pi#$DIR#g" -e "s#User=pi#User=$USER_NAME#" "$DIR/rc-car.service" \
+sed -e "s#/home/pi/rover/pi#$DIR#g" -e "s#User=pi#User=$USER_NAME#" "$DIR/rc-car.service" \
   | sudo tee /etc/systemd/system/rc-car.service > /dev/null
 sudo systemctl daemon-reload
 sudo systemctl enable rc-car

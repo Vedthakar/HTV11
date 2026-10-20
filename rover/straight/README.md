@@ -5,8 +5,8 @@ Drives the car straight forward forever. Talks directly to the Grove I2C Motor D
 
 ## 1. Copy to the Pi (on the Mac)
 ```bash
-cd ~/Downloads                     # wherever you unzipped rc-path
-scp -r rc-path pi@raspberrypi.local:~/
+cd ~/Downloads                     # wherever you unzipped rover
+scp -r rover pi@raspberrypi.local:~/
 ssh pi@raspberrypi.local
 ```
 Replace `pi` with your Pi username if it's different.
@@ -21,7 +21,7 @@ sudo reboot
 
 ## 3. Build and check the driver
 ```bash
-cd ~/rc-path/straight
+cd ~/rover/straight
 make
 i2cdetect -y 1          # must show "0f" in the grid
 ```

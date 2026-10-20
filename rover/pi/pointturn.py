@@ -12,7 +12,7 @@ If the front wheels do NOT swing during those phases, the steering is the
 problem (not the turn logic) -- tell me what you see.
 
     sudo systemctl stop rc-car
-    cd ~/rc-path/pi
+    cd ~/rover/pi
     python3 pointturn.py                 # right, 6 cycles, 0.6s drive, 1.2s swing
     python3 pointturn.py L               # pivot left
     python3 pointturn.py R 6 0.6 1.2     # dir, cycles, drive_s, swing_s

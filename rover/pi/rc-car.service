@@ -3,8 +3,8 @@ Description=RC car path runner
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /home/pi/rc-path/pi/car_server.py
-WorkingDirectory=/home/pi/rc-path/pi
+ExecStart=/usr/bin/python3 /home/pi/rover/pi/car_server.py
+WorkingDirectory=/home/pi/rover/pi
 Restart=always
 RestartSec=2
 User=pi

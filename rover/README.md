@@ -35,9 +35,9 @@ plug the battery in, the Pi boots, waits `start_delay_s`, and drives once.
 ## 2. Install on the Pi
 ```bash
 # from the Mac (adjust user/hostname):
-scp -r rc-path pi@raspberrypi.local:~/
+scp -r rover pi@raspberrypi.local:~/
 ssh pi@raspberrypi.local
-cd ~/rc-path/pi && bash install.sh       # installs gpiozero, sets up the auto-start service
+cd ~/rover/pi && bash install.sh       # installs gpiozero, sets up the auto-start service
 journalctl -u rc-car -f                  # watch logs
 ```
 
@@ -64,7 +64,7 @@ For Ackermann, steering can be a `servo` (signal on GPIO18) or a toy-car `dc` st
 ## 4. Calibrate (important for accuracy)
 ```bash
 sudo systemctl stop rc-car
-cd ~/rc-path/pi
+cd ~/rover/pi
 python3 calibrate.py wiggle     # check each motor turns the right way (fix with invert_* flags)
 python3 calibrate.py deadband   # minimum power at which the car moves
 python3 calibrate.py straight   # measures max_speed_mps; tune left_trim/right_trim if it curves
@@ -74,7 +74,7 @@ sudo systemctl start rc-car
 
 ## 5. Run the UI on the Mac
 ```bash
-cd rc-path/mac && python3 server.py      # no pip installs needed
+cd rover/mac && python3 server.py      # no pip installs needed
 ```
 Open **http://localhost:8000**:
 1. Set the floor-area width and draw your path (or click Circle / Figure 8 / Square).
