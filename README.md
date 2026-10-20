@@ -1,6 +1,13 @@
-# Premiere — Rover-Mounted iPhone LiDAR to an explorable 3D capture
+# Premiere
 
-Local starter project for an iPhone 17 Pro mounted on an autonomous robot car. Capture RGB, LiDAR depth/confidence and ARKit camera poses, upload to this Mac, build geometry, and explore the point cloud. This project uses Apple's frameworks, Three.js, SparkJS, and Brush directly.
+An iPhone on a small rover records LiDAR. This repo lets you inspect that capture, and it gives the car a path to drive.
+
+- **Capture and view.** LOTA (or the legacy RoverCapture app) sends RGB, depth, and camera poses to the laptop. The studio loads the point cloud and Gaussian splat in Three.js.
+- **Inspect.** Pin notes on the scan, colour the cloud by height, and measure a distance between two points.
+- **Drive.** Draw a path on the Mac. The Pi follows it open-loop after the cable is unplugged. See [rover/README.md](rover/README.md).
+- **Map.** The landing page replays a Toronto survey mission. The route playback is simulated until a live telemetry socket is connected.
+
+Apple's frameworks, Three.js, SparkJS, and Brush do the reconstruction work. Motor control lives in `rover/` and does not avoid obstacles or close the loop with the LiDAR.
 
 ## Start on the laptop (Windows or macOS)
 
@@ -71,16 +78,25 @@ Start handheld before attaching to the rover. Use a textured, static scene with 
 - Native SwiftUI/ARKit app: local images, raw depth/confidence, camera calibration/poses, upload.
 - FastAPI: sessions, bounded per-file streaming uploads, optional shared token, single-job processing queue, explicit errors and artifacts.
 - Python exporter: row-stride-free depth, confidence filtering, ARKit → world point cloud, ARKit → COLMAP camera conversion, COLMAP-format dataset and transforms.json.
-- Browser: real PLY point-cloud loader and SparkJS Gaussian-splat viewer, session status, fit/orbit/pan/zoom, local file import.
+- Browser: real PLY point-cloud loader and SparkJS Gaussian-splat viewer, session status, fit/orbit/pan/zoom, local file import. Point size follows the scan diagonal (with a 40–250% slider). **Colour points by height** repaints the view from low blue to high amber without writing the file. **Measure** picks two captured vertices and shows the straight-line distance.
+
+## Drive the rover
+
+`rover/` is the car software: a path planner, a Mac page that previews the path, a Pi server for a Grove I2C motor driver, calibration scripts, and a small C program that drives straight after Ethernet is unplugged.
+
+```bash
+cd rover && python3 tests/test_planner.py && python3 tests/test_unplug.py
+cd rover/mac && python3 server.py    # http://localhost:8000
+```
+
+Copy `rover/` to the Pi and run `bash install.sh` from `rover/pi`. Wiring, calibration, and the unplug trigger are in [rover/README.md](rover/README.md). The drive is open-loop dead reckoning. It does not stop for obstacles, and it does not use the phone's LiDAR.
 
 ## What still needs hardware work
 
-- iPhone signing/install and an end-to-end scan on your physical phone.
-- Assessment of actual camera tracking, reconstruction quality, and processing time.
-- Car motor control, remote driving, collision avoidance, autonomous exploration, wheel odometry.
-- Live streaming and continuous reconstruction. This version is capture → upload → process.
-
-No autonomous-car code is invented without your controller/motor hardware. You can manually drive an existing car while the phone records.
+- iPhone signing and an end-to-end scan on a physical phone.
+- A check of real tracking quality and processing time.
+- Closed-loop driving: obstacle avoidance, wheel odometry, or a gyro. The open-loop planner above does not do this.
+- Live streaming is a preview. The imported ZIP is the map.
 
 ## Architecture
 
@@ -89,6 +105,9 @@ ios/RoverCapture/              SwiftUI interface, ARKit recorder, local storage,
 backend/main.py                FastAPI routes and background job coordination
 backend/capture.py             Coordinate conversion and dataset preparation
 web/src/main.js                Three.js point/splat rendering and session controls
+web/src/cloud-view.js          Point size and height colour for the LiDAR cloud
+web/src/measure.js             Two-point distance on the cloud
+rover/                         Path planner, Pi motor server, Mac drawing UI, C straight-drive
 scripts/demo_capture.py        Explicitly synthetic fixture (never shown as a real scan)
 tests/test_pipeline.py         Geometry-convention, corrupt-input, upload, and job tests
 data/sessions/<id>/            Raw capture, dataset, cloud.ply, trajectory.json
@@ -122,13 +141,9 @@ npm --prefix web ci --cache "$PWD/.npm-cache"
 
 A Gaussian splat is a visual reconstruction; autonomous navigation requires a separate mapping/planning/control system.
 
-## Verification in this setup session
+## What has been checked
 
-- Four pipeline tests passed (known geometry/pose conversion, missing/corrupt depth, authenticated uploads and background preparation).
-- Vite production build passed.
-- Xcode unsigned device build passed with the installed iOS 18.1 SDK. Deployment to an iPhone 17 Pro running newer iOS may require updating Xcode.
-- Browser loaded and rendered the synthetic point-cloud fixture.
-- Official Brush v0.3.0 binary checksum verified; CLI help runs. A five-step training smoke test could not start: this restricted execution environment exposed no Metal GPU adapter. Run training from your normal Terminal to determine hardware compatibility. End-to-end real capture and Gaussian training quality remain unverified.
+Pipeline tests cover known geometry and pose conversion, missing or corrupt depth, authenticated uploads, and background preparation. The Vite production build has passed. An unsigned Xcode device build passed with the iOS 18.1 SDK; an iPhone 17 Pro on a newer iOS may need a newer Xcode. The synthetic point cloud has been rendered in the browser. Brush v0.3.0's checksum matches and its CLI starts; a training smoke test needs a Metal GPU, so run that from a normal Terminal. A real phone capture and a full Gaussian training run are still unverified. Rover planner tests do not need a Pi.
 
 ## Rover mission map (operator tracking view)
 
