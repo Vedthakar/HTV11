@@ -9,6 +9,7 @@ import {createHouseDesigner} from './house.js';
 import {createReplacement} from './replacement.js';
 import {createLive} from './live.js';
 import {copyVertexColors, heightColorBuffer, pointWorldSize} from './cloud-view.js';
+import {createMeasure} from './measure.js';
 
 const $=s=>document.querySelector(s),viewport=$('#viewport');
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
@@ -53,12 +54,14 @@ function sessionInfo(s){
   for(const line of lines){const p=document.createElement('p');p.textContent=line;box.append(p);}
 }
 function notice(message){$('#notice').textContent=message;}
+let measuring=false;
 const pins=createPins({scene,camera,canvas:renderer.domElement,controls,
-  onPlace:position=>observations.place(position),onSelect:id=>observations.open(id),isVisible:point=>replacement?.isVisible(point)??true,isBlocked:()=>designer.editing});
+  onPlace:position=>observations.place(position),onSelect:id=>observations.open(id),isVisible:point=>replacement?.isVisible(point)??true,isBlocked:()=>designer.editing||measuring});
 const observations=createObservations({pins,getToken:()=>$('#token').value,notice,
   showCloud:()=>{if(selectedSession?.cloud_url)load(selectedSession.cloud_url,'cloud',selectedSession.demo);}});
 
-const designer=createHouseDesigner({scene,camera,canvas:renderer.domElement,controls,onEditStart:()=>observations.cancel(),onChange:()=>{$('#empty').hidden=Boolean(content)||designer.visible;replacement?.sync();},onFocus:houseOnly=>fit(houseOnly)});
+const designer=createHouseDesigner({scene,camera,canvas:renderer.domElement,controls,onEditStart:()=>{observations.cancel();measure.stop();},onChange:()=>{$('#empty').hidden=Boolean(content)||designer.visible;replacement?.sync();},onFocus:houseOnly=>fit(houseOnly)});
+const measure=createMeasure({scene,camera,canvas:renderer.domElement,getCloud:()=>content?.isPoints?content:null,isBlocked:()=>designer.editing,onActive(on){measuring=on;if(on){designer.stopEditing();observations.cancel();}}});
 replacement=createReplacement({scene,getView:()=>designer.viewMode,getProposalEnabled:()=>designer.enabled,getHouseBounds:()=>designer.bounds()});
 function fit(houseOnly=false){
   const houseBounds=designer.bounds();
@@ -96,7 +99,7 @@ function applyCloudAppearance(points){
   points.material.needsUpdate=true;
   $('#point-size-value').textContent=`${Math.round((Number.isFinite(scale)?scale:1)*100)}%`;
 }
-function clear(){replacement.setSource(null);$('#cloud-view').hidden=true;if(content){scene.remove(content);dispose(content);content=null;}currentBounds=null;}
+function clear(){replacement.setSource(null);measure.setCloud(null);$('#cloud-view').hidden=true;if(content){scene.remove(content);dispose(content);content=null;}currentBounds=null;}
 async function load(url,kind,demo=false,fileName){
   const version=++requestVersion;designer.stopEditing();observations.cancel();observations.geometryReady(null);notice('Loading reconstruction…');let obj;
   try{
@@ -114,7 +117,8 @@ async function load(url,kind,demo=false,fileName){
     obj.userData.viewKey=selectedSession?.id||url;
     if(kind==='cloud')applyCloudAppearance(obj);
     designer.setContext(currentBounds,obj.userData.viewKey);replacement.setSource(obj,currentBounds,obj.userData.viewKey);
-    $('#cloud-view').hidden=kind!=='cloud';
+    if(kind==='cloud'){$('#cloud-view').hidden=false;measure.setCloud(obj);}
+    else{$('#cloud-view').hidden=true;measure.setCloud(null);}
     fit();observations.geometryReady(kind==='cloud'?obj:null);
     $('#empty').hidden=true;
     $('#mode').textContent=demo?'SYNTHETIC TEST CAPTURE':kind==='cloud'?'LIDAR POINT CLOUD':'GAUSSIAN SPLAT';
@@ -124,12 +128,12 @@ async function load(url,kind,demo=false,fileName){
 }
 function resize(){const w=viewport.clientWidth,h=viewport.clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(viewport);
-renderer.setAnimationLoop(()=>{controls.update();pins.update();renderer.render(scene,camera);});
+renderer.setAnimationLoop(()=>{controls.update();pins.update();measure.update();renderer.render(scene,camera);});
 $('#fit').onclick=()=>fit();
 $('#point-size').oninput=()=>{if(content?.isPoints)applyCloudAppearance(content);};
 // The replacement preview works on a copy of the geometry, so re-sync it after recolouring.
 $('#color-by-height').onchange=()=>{if(content?.isPoints){applyCloudAppearance(content);replacement.setSource(content,currentBounds,content.userData.viewKey);}};
-$('#add-observation').addEventListener('click',()=>designer.stopEditing(),true);
+$('#add-observation').addEventListener('click',()=>{designer.stopEditing();measure.stop();},true);
 
 for(const kind of ['cloud','splat'])$('#'+kind).onchange=async e=>{
   const file=e.target.files[0];if(!file)return;

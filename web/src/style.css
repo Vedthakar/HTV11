@@ -177,6 +177,9 @@ main { position: relative; min-width: 0; overflow: hidden; background: radial-gr
 canvas { display: block; touch-action: none; }
 .topline, .bottomline { position: absolute; left: 16px; right: 16px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; pointer-events: none; }
 .topline { top: 14px; }
+.topline-actions { display: flex; align-items: center; gap: 8px; pointer-events: none; }
+.chip-btn:disabled { opacity: .45; cursor: default; }
+.chip-btn[aria-pressed="true"] { color: #ffb08f; border-color: rgba(242, 92, 36, .55); }
 .bottomline { bottom: 14px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px; font: 400 10.5px var(--mono); letter-spacing: .1em;
   color: var(--view-ink); background: rgba(21, 24, 27, .72); border: 1px solid rgba(255, 255, 255, .08); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }

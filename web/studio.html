@@ -219,7 +219,11 @@
   <main id="viewport">
     <div class="topline">
       <span id="mode" class="chip">NO SCAN LOADED</span>
-      <button id="fit" class="chip chip-btn">Fit view</button>
+      <span class="topline-actions">
+        <span id="measure-readout" class="chip" hidden></span>
+        <button id="measure" class="chip chip-btn" type="button" aria-pressed="false" disabled>Measure</button>
+        <button id="fit" class="chip chip-btn" type="button">Fit view</button>
+      </span>
     </div>
     <div id="proposal-badge" class="chip chip-accent" hidden>PROPOSED DESIGN · CONCEPT MODEL</div>
     <div id="empty">
