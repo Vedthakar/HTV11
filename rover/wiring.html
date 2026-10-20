@@ -1,0 +1,526 @@
+<title>RC Car Wiring Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: answer first, then one big numbered schematic, the wire-by-wire table, three close-ups, then the steps. */
+:root {
+  --bg: #f3f5f2;
+  --surface: #ffffff;
+  --ink: #18201b;
+  --muted: #5b665f;
+  --line: #d5dbd5;
+  --pi: #1f7a4a;
+  --pi-soft: #e2f1e8;
+  --drv: #1f4fa8;
+  --drv-soft: #e3eafa;
+  --orig: #8a3b2b;
+  --motor: #6b7280;
+  --motor-soft: #eceef0;
+  --bank: #6d4fb3;
+  --bank-soft: #eee8fa;
+  --danger: #c0262d;
+  --danger-soft: #fde7e7;
+  --ok: #1f7a4a;
+  --casing: #18201b;
+  --w-black: #1b1b1b;
+  --w-red: #d62f2f;
+  --w-white: #f4f4f4;
+  --w-yellow: #f2c230;
+  --w-blue: #2f6fe0;
+  --w-gray: #9aa0a6;
+  --w-green: #3aa65b;
+  --term: #2f8f55;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101511; --surface: #172019; --ink: #e6ece7; --muted: #9eaaa2; --line: #2b362e;
+    --pi: #4cc286; --pi-soft: #173826; --drv: #7aa2f0; --drv-soft: #18233d;
+    --orig: #e08a75; --motor: #a8b0b8; --motor-soft: #22282c; --bank: #b39af0; --bank-soft: #261d3a;
+    --danger: #ff6b6b; --danger-soft: #3a1717; --ok: #4cc286; --casing: #c9d2cb; --term: #3fae6c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101511; --surface: #172019; --ink: #e6ece7; --muted: #9eaaa2; --line: #2b362e;
+  --pi: #4cc286; --pi-soft: #173826; --drv: #7aa2f0; --drv-soft: #18233d;
+  --orig: #e08a75; --motor: #a8b0b8; --motor-soft: #22282c; --bank: #b39af0; --bank-soft: #261d3a;
+  --danger: #ff6b6b; --danger-soft: #3a1717; --ok: #4cc286; --casing: #c9d2cb; --term: #3fae6c;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font: 16px/1.55 var(--f-body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: .01em; }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; }
+h2 { font-size: 24px; }
+h3 { font-size: 19px; }
+p { margin: 0; }
+.lede { max-width: 70ch; color: var(--muted); margin-top: 8px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.answer { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; }
+.answer .man { background: var(--bank-soft); }
+.answer .man .tag { color: var(--bank); }
+.answer > div { padding: 18px 20px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.answer .no { background: var(--danger-soft); }
+.answer .yes { background: var(--pi-soft); }
+.answer .tag { font-family: var(--f-mono); font-size: 12px; font-weight: 600; letter-spacing: .06em; }
+.answer .no .tag { color: var(--danger); } .answer .yes .tag { color: var(--ok); }
+@media (max-width: 900px) { .answer { grid-template-columns: 1fr; } }
+.alert { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start; padding: 16px 18px;
+  border-radius: 10px; background: var(--danger-soft); border: 1px solid var(--danger); }
+.alert b.big { font-family: var(--f-display); font-size: 20px; color: var(--danger); display: block; }
+.alert p { margin-top: 4px; max-width: 80ch; }
+.badge { font-family: var(--f-mono); font-weight: 600; font-size: 13px; color: var(--surface); background: var(--danger);
+  border-radius: 6px; padding: 4px 8px; white-space: nowrap; }
+.scroll { overflow-x: auto; }
+.diagram { padding: 12px; }
+.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+svg text { font-family: var(--f-body); }
+svg text:not([fill]) { fill: var(--ink); }
+svg .t-title { font-family: var(--f-display); font-weight: 700; font-size: 20px; }
+svg .t-sub { font-size: 13px; }
+svg .t-sub:not([fill]) { fill: var(--muted); }
+svg .t-mono { font-family: var(--f-mono); font-size: 12.5px; font-weight: 600; }
+svg .num { font-family: var(--f-mono); font-size: 12px; font-weight: 700; }
+table.wires { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 720px; }
+table.wires th { text-align: left; font-family: var(--f-mono); font-size: 12px; letter-spacing: .05em; color: var(--muted);
+  font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+table.wires td { padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+table.wires tr.warn td { background: var(--danger-soft); }
+.n { font-family: var(--f-mono); font-weight: 700; display: inline-grid; place-items: center; min-width: 26px; height: 26px;
+  padding: 0 4px; border-radius: 13px; background: var(--ink); color: var(--surface); font-size: 13px; }
+.n.r { background: var(--danger); }
+.sw { display: inline-block; width: 26px; height: 8px; border-radius: 4px; vertical-align: middle; margin-right: 8px;
+  box-shadow: 0 0 0 1.5px var(--casing); }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 860px) { .modes { grid-template-columns: 1fr; } }
+.mode { display: grid; gap: 8px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.mode .tag { font-family: var(--f-mono); font-size: 12px; font-weight: 600; letter-spacing: .06em; }
+.mode svg { width: 100%; height: auto; display: block; }
+.rules { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.closeups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 980px) { .closeups { grid-template-columns: 1fr; } }
+.closeup { padding: 16px; display: grid; gap: 10px; align-content: start; }
+.closeup svg { width: 100%; height: auto; display: block; }
+.closeup p { color: var(--muted); font-size: 15px; }
+.steps { list-style: none; margin: 0; padding: 0; counter-reset: s; display: grid; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 14px 18px;
+  border-top: 1px solid var(--line); min-width: 0; }
+.steps li:first-child { border-top: 0; }
+.steps li::before { content: counter(s); font-family: var(--f-display); font-weight: 700; font-size: 20px;
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--drv-soft); color: var(--drv); }
+.steps b { display: block; }
+.steps span { color: var(--muted); font-size: 15px; }
+.cols { display: grid; grid-template-columns: 1.35fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+.side { display: grid; gap: 20px; }
+.box { padding: 16px 18px; display: grid; gap: 8px; }
+.box ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+code { font-family: var(--f-mono); font-size: .9em; background: var(--motor-soft); padding: 1px 5px; border-radius: 4px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>RC Car Wiring Map</h1>
+    <p class="lede">Raspberry Pi + Grove Base Hat + Grove I2C Motor Driver v1.3 + the car's two motors, powered from one USB power bank, with the original RC board kept for manual driving. Every wire has a number. Find the number in the drawing, then read its row in the table.</p>
+  </header>
+
+  <section class="panel answer" aria-label="Can we use the original board's battery?">
+    <div class="no">
+      <span class="tag">ORIGINAL BOARD'S BATTERY: NO</span>
+      <h3>The blue cell is a single 3.7 V lithium battery.</h3>
+      <p>The blue motor driver needs 6 V or more on its battery input. On 3.7 V its chip doesn't turn on, and the motors would get under 2 V. It can't run the Pi either (the Pi needs 5 V). Leave the battery soldered to the old board.</p>
+    </div>
+    <div class="yes">
+      <span class="tag">ONE USB POWER BANK: YES</span>
+      <h3>Run the Pi, the driver and the motors from a power bank.</h3>
+      <p>The power bank's second USB port gives 5 V. That goes to the driver's motor terminal and to its Grove socket (with the J4 jumper pulled off), which powers the driver's chip properly. A phone power bank with two USB ports, 2.4 A or more, is ideal.</p>
+    </div>
+    <div class="man">
+      <span class="tag">MANUAL DRIVING: YES, BY SWAPPING 2 PLUGS</span>
+      <h3>The original board still works as a normal RC car.</h3>
+      <p>Its own battery, switch and radio run the motors with the old remote. To switch modes you move the two motor plugs between the original board and the adapter leads on the blue driver. A motor can only be plugged into one board at a time, so the two can never fight.</p>
+    </div>
+  </section>
+
+  <div class="alert" role="note">
+    <span class="badge">RULE #1</span>
+    <div>
+      <b class="big">The Grove cable's red wire must never reach the Pi.</b>
+      <p>Cut it about 5 cm from the driver's plug. The short piece on the driver side gets 5 V from the power bank (wire 6). The long piece going to the Pi gets taped off and connects to nothing (wire 5). The Pi's port is 3.3 V and 5 V there can damage the Pi.</p>
+    </div>
+  </div>
+
+  <div class="panel diagram scroll">
+    <svg viewBox="0 0 1200 790" role="img" aria-label="Numbered wiring diagram. Power bank port A to Pi. Power bank port B through a cut USB cable to the driver power terminal, red to plus, black to minus. Grove cable from Base Hat I2C port to driver: yellow, white, black connected; red cut near the driver, driver-side piece into the plus terminal, Pi-side piece taped. M1 to drive motor, M2 to steering motor. J4 removed.">
+      <defs>
+        <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="8" stroke="var(--line)" stroke-width="3"/>
+        </pattern>
+      </defs>
+
+      <!-- Raspberry Pi + hat -->
+      <rect x="40" y="50" width="300" height="270" rx="12" fill="var(--pi-soft)" stroke="var(--pi)" stroke-width="2.5"/>
+      <text x="60" y="86" class="t-title">Raspberry Pi</text>
+      <text x="60" y="108" class="t-sub">Grove Base Hat on top</text>
+      <rect x="60" y="126" width="200" height="98" rx="8" fill="var(--surface)" stroke="var(--pi)" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="74" y="150" class="t-mono" fill="var(--pi)">GROVE BASE HAT</text>
+      <text x="74" y="172" class="t-sub">use a port labelled</text>
+      <text x="74" y="190" class="t-sub"><tspan font-weight="700" fill="var(--ink)">I2C</tspan> (any of the 3)</text>
+      <text x="74" y="208" class="t-sub">not A0, D5, PWM or UART</text>
+      <rect x="320" y="132" width="44" height="94" rx="5" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+      <text x="342" y="244" class="t-mono" text-anchor="middle">I2C</text>
+      <rect x="60" y="254" width="56" height="34" rx="4" fill="var(--motor-soft)" stroke="var(--motor)" stroke-width="1.5"/>
+      <text x="88" y="276" class="t-mono" text-anchor="middle">LAN</text>
+      <circle cx="140" cy="271" r="11" fill="var(--ink)"/><text x="140" y="275" class="num" text-anchor="middle" fill="var(--surface)">2</text>
+      <text x="158" y="268" class="t-sub">Ethernet to the Mac</text>
+      <text x="158" y="285" class="t-sub">unplug it = car starts</text>
+      <rect x="100" y="312" width="40" height="16" rx="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="150" y="344" class="t-mono" fill="var(--muted)">USB-C power</text>
+
+      <!-- Grove cable: pins 1..4 top->bottom = yellow SCL 146, white SDA 166, red VCC 186, black GND 206 -->
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M364 146 H626" stroke="var(--casing)" stroke-width="9"/><path d="M364 146 H626" stroke="var(--w-yellow)" stroke-width="6"/>
+        <path d="M364 166 H626" stroke="var(--casing)" stroke-width="9"/><path d="M364 166 H626" stroke="var(--w-white)" stroke-width="6"/>
+        <path d="M364 186 H540" stroke="var(--casing)" stroke-width="9"/><path d="M364 186 H540" stroke="var(--w-red)" stroke-width="6"/>
+        <path d="M364 206 H626" stroke="var(--casing)" stroke-width="9"/><path d="M364 206 H626" stroke="var(--w-black)" stroke-width="6"/>
+        <path d="M626 186 H592 V198 M592 214 V462 H726 V425" stroke="var(--casing)" stroke-width="9"/>
+        <path d="M626 186 H592 V198 M592 214 V462 H726 V425" stroke="var(--w-red)" stroke-width="6"/>
+        <path d="M592 198 A8 8 0 0 1 592 214" stroke="var(--casing)" stroke-width="9"/>
+        <path d="M592 198 A8 8 0 0 1 592 214" stroke="var(--w-red)" stroke-width="6"/>
+      </g>
+      <rect x="536" y="176" width="24" height="20" rx="4" fill="var(--motor)"/>
+      <text x="548" y="236" class="t-mono" text-anchor="middle" fill="var(--danger)">tape</text>
+      <text x="566" y="181" class="t-mono" fill="var(--danger)">✂</text>
+      <text x="410" y="128" class="t-mono" fill="var(--muted)">Grove cable (4 wires)</text>
+      <circle cx="420" cy="146" r="11" fill="var(--ink)"/><text x="420" y="150" class="num" text-anchor="middle" fill="var(--surface)">3</text>
+      <circle cx="450" cy="166" r="11" fill="var(--ink)"/><text x="450" y="170" class="num" text-anchor="middle" fill="var(--surface)">4</text>
+      <circle cx="480" cy="186" r="11" fill="var(--danger)"/><text x="480" y="190" class="num" text-anchor="middle" fill="var(--surface)">5</text>
+      <rect x="400" y="195" width="30" height="22" rx="11" fill="var(--ink)"/><text x="415" y="210" class="num" text-anchor="middle" fill="var(--surface)">6b</text>
+
+      <!-- Motor driver -->
+      <rect x="640" y="50" width="320" height="360" rx="12" fill="var(--drv-soft)" stroke="var(--drv)" stroke-width="2.5"/>
+      <rect x="626" y="132" width="40" height="94" rx="5" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+      <text x="690" y="86" class="t-title">Grove I2C Motor Driver</text>
+      <text x="690" y="108" class="t-sub">blue board · v1.3</text>
+      <text x="680" y="248" class="t-sub">Grove socket (white)</text>
+      <rect x="760" y="140" width="96" height="58" rx="4" fill="var(--w-black)" stroke="var(--casing)" stroke-width="1"/>
+      <text x="808" y="174" class="t-mono" text-anchor="middle" fill="var(--w-white)">L298</text>
+      <rect x="690" y="290" width="40" height="22" rx="3" fill="none" stroke="var(--danger)" stroke-width="2" stroke-dasharray="4 3"/>
+      <circle cx="702" cy="301" r="3" fill="var(--ink)"/><circle cx="718" cy="301" r="3" fill="var(--ink)"/>
+      <text x="740" y="300" class="t-mono" fill="var(--danger)">J4: PULL THE</text>
+      <text x="740" y="317" class="t-mono" fill="var(--danger)">JUMPER CAP OFF</text>
+      <text x="690" y="352" class="t-sub">address switches: don't touch</text>
+      <rect x="946" y="78" width="32" height="64" rx="4" fill="var(--term)" stroke="var(--casing)" stroke-width="1"/>
+      <circle cx="962" cy="96" r="7" fill="var(--surface)"/><circle cx="962" cy="124" r="7" fill="var(--surface)"/>
+      <text x="932" y="114" class="t-mono" text-anchor="end">M1</text>
+      <rect x="946" y="268" width="32" height="64" rx="4" fill="var(--term)" stroke="var(--casing)" stroke-width="1"/>
+      <circle cx="962" cy="286" r="7" fill="var(--surface)"/><circle cx="962" cy="314" r="7" fill="var(--surface)"/>
+      <text x="932" y="304" class="t-mono" text-anchor="end">M2</text>
+      <rect x="704" y="392" width="120" height="34" rx="4" fill="var(--term)" stroke="var(--casing)" stroke-width="1"/>
+      <circle cx="734" cy="409" r="9" fill="var(--surface)"/><circle cx="794" cy="409" r="9" fill="var(--surface)"/>
+      <text x="734" y="413" class="num" text-anchor="middle">+</text>
+      <text x="794" y="413" class="num" text-anchor="middle">−</text>
+      <text x="836" y="414" class="t-mono">power in</text>
+
+      <!-- Motors: driver terminal -> adapter lead (spare cable) -> white plug -> motor's own wires -->
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M962 96 H996" stroke="var(--casing)" stroke-width="9"/><path d="M962 96 H996" stroke="var(--w-red)" stroke-width="6"/>
+        <path d="M962 124 H996" stroke="var(--casing)" stroke-width="9"/><path d="M962 124 H996" stroke="var(--w-black)" stroke-width="6"/>
+        <path d="M1020 96 H1040" stroke="var(--casing)" stroke-width="9"/><path d="M1020 96 H1040" stroke="var(--w-blue)" stroke-width="6"/>
+        <path d="M1020 124 H1040" stroke="var(--casing)" stroke-width="9"/><path d="M1020 124 H1040" stroke="var(--w-gray)" stroke-width="6"/>
+        <path d="M962 286 H996" stroke="var(--casing)" stroke-width="9"/><path d="M962 286 H996" stroke="var(--w-red)" stroke-width="6"/>
+        <path d="M962 314 H996" stroke="var(--casing)" stroke-width="9"/><path d="M962 314 H996" stroke="var(--w-black)" stroke-width="6"/>
+        <path d="M1020 286 H1040" stroke="var(--casing)" stroke-width="9"/><path d="M1020 286 H1040" stroke="var(--w-yellow)" stroke-width="6"/>
+        <path d="M1020 314 H1040" stroke="var(--casing)" stroke-width="9"/><path d="M1020 314 H1040" stroke="var(--w-gray)" stroke-width="6"/>
+      </g>
+      <!-- white plug junctions (the mode switch) -->
+      <rect x="994" y="82" width="28" height="56" rx="4" fill="var(--w-white)" stroke="var(--casing)" stroke-width="2"/>
+      <path d="M1008 86 V134" stroke="var(--casing)" stroke-width="1.5" stroke-dasharray="3 3"/>
+      <rect x="994" y="272" width="28" height="56" rx="4" fill="var(--w-white)" stroke="var(--casing)" stroke-width="2"/>
+      <path d="M1008 276 V324" stroke="var(--casing)" stroke-width="1.5" stroke-dasharray="3 3"/>
+      <text x="1008" y="72" class="t-mono" text-anchor="middle" fill="var(--bank)">plug A</text>
+      <text x="1008" y="346" class="t-mono" text-anchor="middle" fill="var(--bank)">plug B</text>
+      <circle cx="979" cy="152" r="11" fill="var(--ink)"/><text x="979" y="156" class="num" text-anchor="middle" fill="var(--surface)">9</text>
+      <rect x="964" y="232" width="30" height="22" rx="11" fill="var(--ink)"/><text x="979" y="247" class="num" text-anchor="middle" fill="var(--surface)">10</text>
+      <!-- manual-mode route: plugs move to the original board -->
+      <path d="M1008 356 V500" stroke="var(--bank)" stroke-width="2.5" stroke-dasharray="8 6" fill="none"/>
+      <path d="M1000 490 L1008 506 L1016 490" stroke="var(--bank)" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+      <text x="1020" y="440" class="t-mono" fill="var(--bank)">manual mode:</text>
+      <text x="1020" y="458" class="t-sub" fill="var(--ink)">plugs A + B move</text>
+      <text x="1020" y="474" class="t-sub" fill="var(--ink)">to the original board</text>
+      <rect x="1040" y="44" width="130" height="130" rx="14" fill="var(--motor-soft)" stroke="var(--motor)" stroke-width="2"/>
+      <circle cx="1105" cy="92" r="26" fill="var(--surface)" stroke="var(--motor)" stroke-width="2"/>
+      <circle cx="1105" cy="92" r="6" fill="var(--motor)"/>
+      <text x="1105" y="140" class="t-mono" text-anchor="middle">DRIVE MOTOR</text>
+      <text x="1105" y="158" class="t-sub" text-anchor="middle">rear gearbox</text>
+      <text x="1040" y="194" class="t-sub">blue + gray wires</text>
+      <rect x="1040" y="236" width="130" height="130" rx="14" fill="var(--motor-soft)" stroke="var(--motor)" stroke-width="2"/>
+      <path d="M1080 286 l25 -16 l25 16" fill="none" stroke="var(--motor)" stroke-width="3" stroke-linecap="round"/>
+      <path d="M1080 298 l25 16 l25 -16" fill="none" stroke="var(--motor)" stroke-width="3" stroke-linecap="round"/>
+      <text x="1105" y="338" class="t-mono" text-anchor="middle">STEERING</text>
+      <text x="1105" y="356" class="t-sub" text-anchor="middle">wheels pivot</text>
+      <text x="1040" y="386" class="t-sub">yellow + gray wires</text>
+
+      <!-- Power bank -->
+      <rect x="40" y="520" width="320" height="150" rx="14" fill="var(--bank-soft)" stroke="var(--bank)" stroke-width="2.5"/>
+      <text x="60" y="556" class="t-title">USB power bank</text>
+      <text x="60" y="578" class="t-sub">2 USB ports, 2.4 A or more</text>
+      <text x="60" y="598" class="t-sub">the only battery on the car</text>
+      <rect x="100" y="506" width="40" height="16" rx="3" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="120" y="650" class="t-mono" text-anchor="middle">port A ↑</text>
+      <rect x="344" y="590" width="16" height="40" rx="3" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="296" y="650" class="t-mono" text-anchor="middle">port B →</text>
+      <path d="M120 506 V328" stroke="var(--casing)" stroke-width="10" fill="none" stroke-linecap="round"/>
+      <path d="M120 506 V328" stroke="var(--motor)" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <circle cx="120" cy="420" r="11" fill="var(--ink)"/><text x="120" y="424" class="num" text-anchor="middle" fill="var(--surface)">1</text>
+      <text x="138" y="424" class="t-sub">USB-C cable</text>
+
+      <path d="M360 610 H450" stroke="var(--casing)" stroke-width="12" fill="none" stroke-linecap="round"/>
+      <path d="M360 610 H450" stroke="var(--motor)" stroke-width="9" fill="none" stroke-linecap="round"/>
+      <text x="366" y="592" class="t-sub">old USB cable</text>
+      <text x="452" y="586" class="t-mono" fill="var(--danger)">✂ cut end</text>
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M450 604 H742 V425" stroke="var(--casing)" stroke-width="9"/><path d="M450 604 H742 V425" stroke="var(--w-red)" stroke-width="6"/>
+        <path d="M450 622 H794 V425" stroke="var(--casing)" stroke-width="9"/><path d="M450 622 H794 V425" stroke="var(--w-black)" stroke-width="6"/>
+        <path d="M450 612 H480" stroke="var(--casing)" stroke-width="7"/><path d="M450 612 H480" stroke="var(--w-white)" stroke-width="4"/>
+        <path d="M450 616 H476" stroke="var(--casing)" stroke-width="7"/><path d="M450 616 H476" stroke="var(--w-green)" stroke-width="4"/>
+      </g>
+      <rect x="474" y="606" width="18" height="14" rx="3" fill="var(--motor)"/>
+      <text x="452" y="656" class="t-sub">white + green inside: cut short, tape</text>
+      <circle cx="600" cy="604" r="11" fill="var(--danger)"/><text x="600" y="608" class="num" text-anchor="middle" fill="var(--surface)">7</text>
+      <circle cx="660" cy="622" r="11" fill="var(--ink)"/><text x="660" y="626" class="num" text-anchor="middle" fill="var(--surface)">8</text>
+      <circle cx="592" cy="380" r="11" fill="var(--danger)"/><text x="592" y="384" class="num" text-anchor="middle" fill="var(--surface)">6</text>
+      <text x="372" y="392" class="t-mono" fill="var(--danger)">+ screw holds TWO reds:</text>
+      <text x="372" y="410" class="t-sub" fill="var(--ink)">wire 6 (Grove stub) + wire 7 (USB),</text>
+      <text x="372" y="428" class="t-sub" fill="var(--ink)">twisted together, then screwed in</text>
+
+      <!-- Original board -->
+      <rect x="860" y="510" width="310" height="170" rx="12" fill="url(#hatch)" stroke="var(--orig)" stroke-width="2" stroke-dasharray="7 5"/>
+      <rect x="876" y="526" width="278" height="138" rx="8" fill="var(--surface)" opacity=".94"/>
+      <text x="892" y="556" class="t-title" fill="var(--orig)">Original RC board</text>
+      <text x="892" y="578" class="t-mono" fill="var(--bank)">MANUAL MODE ONLY</text>
+      <text x="892" y="600" class="t-sub">Has its own 3.7 V battery + switch.</text>
+      <text x="892" y="620" class="t-sub">Plugs A + B go back into its sockets</text>
+      <text x="892" y="640" class="t-sub">and you drive with the old remote.</text>
+      <text x="892" y="658" class="t-sub">No wires to the Pi or blue driver.</text>
+
+      <!-- Legend -->
+      <text x="40" y="712" class="t-mono" fill="var(--muted)">HOW TO READ THIS</text>
+      <circle cx="51" cy="740" r="11" fill="var(--ink)"/><text x="51" y="744" class="num" text-anchor="middle" fill="var(--surface)">3</text>
+      <text x="70" y="744" class="t-sub" fill="var(--ink)">wire number, matches the table below</text>
+      <circle cx="371" cy="740" r="11" fill="var(--danger)"/><text x="371" y="744" class="num" text-anchor="middle" fill="var(--surface)">5</text>
+      <text x="390" y="744" class="t-sub" fill="var(--ink)">red number = careful, read its row</text>
+      <rect x="652" y="732" width="22" height="16" rx="3" fill="var(--motor)"/>
+      <text x="684" y="744" class="t-sub" fill="var(--ink)">grey block = electrical tape over the end</text>
+    </svg>
+  </div>
+
+  <section class="panel">
+    <h2 style="padding:16px 18px 6px">Every wire, from → to</h2>
+    <div class="scroll">
+      <table class="wires">
+        <thead><tr><th>#</th><th>WIRE</th><th>FROM</th><th>TO</th><th>NOTES</th></tr></thead>
+        <tbody>
+          <tr><td><span class="n">1</span></td><td><span class="sw" style="background:var(--motor)"></span>USB-C cable</td><td>Power bank, port A</td><td>Pi's USB-C power port</td><td>Powers the Pi on the car.</td></tr>
+          <tr><td><span class="n">2</span></td><td><span class="sw" style="background:var(--motor)"></span>Ethernet cable</td><td>Pi's network port</td><td>Mac (your adapter)</td><td>Only while uploading. Pulling it out starts the drive.</td></tr>
+          <tr><td><span class="n">3</span></td><td><span class="sw" style="background:var(--w-yellow)"></span>Grove yellow (SCL)</td><td>Base Hat I2C port</td><td>Driver Grove socket</td><td>Stays inside the cable. Don't cut.</td></tr>
+          <tr><td><span class="n">4</span></td><td><span class="sw" style="background:var(--w-white)"></span>Grove white (SDA)</td><td>Base Hat I2C port</td><td>Driver Grove socket</td><td>Stays inside the cable. Don't cut.</td></tr>
+          <tr class="warn"><td><span class="n r">5</span></td><td><span class="sw" style="background:var(--w-red)"></span>Grove red, long piece</td><td>Base Hat I2C port</td><td><b>Nothing.</b> Tape the cut end.</td><td>The piece still attached to the plug that goes into the Pi's hat.</td></tr>
+          <tr class="warn"><td><span class="n r">6</span></td><td><span class="sw" style="background:var(--w-red)"></span>Grove red, short piece (~5 cm)</td><td>Driver Grove socket</td><td>Driver <b>+</b> power screw</td><td>Strip 5 mm, twist together with wire 7, screw both into +. This powers the driver's chip.</td></tr>
+          <tr><td><span class="n">6b</span></td><td><span class="sw" style="background:var(--w-black)"></span>Grove black (GND)</td><td>Base Hat I2C port</td><td>Driver Grove socket</td><td>Stays inside the cable. Shares ground between Pi and driver. Required.</td></tr>
+          <tr class="warn"><td><span class="n r">7</span></td><td><span class="sw" style="background:var(--w-red)"></span>USB cable red (+5 V)</td><td>Power bank, port B (old cable, cut)</td><td>Driver <b>+</b> power screw</td><td>Shares the + screw with wire 6.</td></tr>
+          <tr><td><span class="n">8</span></td><td><span class="sw" style="background:var(--w-black)"></span>USB cable black (GND)</td><td>Power bank, port B (same cable)</td><td>Driver <b>−</b> power screw</td><td>Black is ground in almost every USB cable.</td></tr>
+          <tr><td><span class="n">9</span></td><td><span class="sw" style="background:var(--w-red)"></span><span class="sw" style="background:var(--w-black)"></span>Adapter lead A (spare cable)</td><td>Driver <b>M1</b>, one wire per screw</td><td>White plug → <b>plug A</b>: drive motor (rear, blue + gray)</td><td>Bare end in the screws, white plug end mates with the motor's plug. Either wire order; wrong direction is fixed in software.</td></tr>
+          <tr><td><span class="n">10</span></td><td><span class="sw" style="background:var(--w-red)"></span><span class="sw" style="background:var(--w-black)"></span>Adapter lead B (spare cable)</td><td>Driver <b>M2</b>, one wire per screw</td><td>White plug → <b>plug B</b>: steering motor (front, yellow + gray)</td><td>Same as above. In manual mode, unplug the motor from here and plug it into the original board.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+
+  <section class="panel" style="padding:16px 18px; display:grid; gap:14px">
+    <h2>Switching modes</h2>
+    <div class="modes">
+      <div class="mode">
+        <span class="tag" style="color:var(--bank)">MANUAL MODE · OLD REMOTE</span>
+        <svg viewBox="0 0 420 200" role="img" aria-label="Manual mode: both motor plugs in the original board, board switch on.">
+          <rect x="20" y="40" width="170" height="120" rx="10" fill="var(--surface)" stroke="var(--orig)" stroke-width="2.5"/>
+          <text x="36" y="70" class="t-title" fill="var(--orig)">Original board</text>
+          <text x="36" y="94" class="t-sub">switch: ON</text>
+          <text x="36" y="112" class="t-sub">own 3.7 V battery</text>
+          <rect x="176" y="62" width="22" height="30" rx="3" fill="var(--w-white)" stroke="var(--casing)" stroke-width="1.5"/>
+          <rect x="176" y="112" width="22" height="30" rx="3" fill="var(--w-white)" stroke="var(--casing)" stroke-width="1.5"/>
+          <g fill="none" stroke-linecap="round">
+            <path d="M198 72 H300" stroke="var(--casing)" stroke-width="8"/><path d="M198 72 H300" stroke="var(--w-blue)" stroke-width="5"/>
+            <path d="M198 84 H300" stroke="var(--casing)" stroke-width="8"/><path d="M198 84 H300" stroke="var(--w-gray)" stroke-width="5"/>
+            <path d="M198 122 H300" stroke="var(--casing)" stroke-width="8"/><path d="M198 122 H300" stroke="var(--w-yellow)" stroke-width="5"/>
+            <path d="M198 134 H300" stroke="var(--casing)" stroke-width="8"/><path d="M198 134 H300" stroke="var(--w-gray)" stroke-width="5"/>
+          </g>
+          <rect x="300" y="56" width="100" height="42" rx="8" fill="var(--motor-soft)" stroke="var(--motor)" stroke-width="2"/>
+          <text x="350" y="82" class="t-mono" text-anchor="middle">A · drive</text>
+          <rect x="300" y="106" width="100" height="42" rx="8" fill="var(--motor-soft)" stroke="var(--motor)" stroke-width="2"/>
+          <text x="350" y="132" class="t-mono" text-anchor="middle">B · steer</text>
+          <text x="20" y="190" class="t-sub">Blue driver: adapter leads hang empty. Pi can stay off.</text>
+        </svg>
+      </div>
+      <div class="mode">
+        <span class="tag" style="color:var(--drv)">PI MODE · DRAWN PATHS</span>
+        <svg viewBox="0 0 420 200" role="img" aria-label="Pi mode: both motor plugs in the adapter leads on the blue driver, original board switched off.">
+          <rect x="20" y="40" width="170" height="120" rx="10" fill="var(--drv-soft)" stroke="var(--drv)" stroke-width="2.5"/>
+          <text x="36" y="70" class="t-title">Blue driver</text>
+          <text x="36" y="94" class="t-sub">M1 → adapter lead A</text>
+          <text x="36" y="112" class="t-sub">M2 → adapter lead B</text>
+          <g fill="none" stroke-linecap="round">
+            <path d="M190 72 H232" stroke="var(--casing)" stroke-width="8"/><path d="M190 72 H232" stroke="var(--w-red)" stroke-width="5"/>
+            <path d="M190 84 H232" stroke="var(--casing)" stroke-width="8"/><path d="M190 84 H232" stroke="var(--w-black)" stroke-width="5"/>
+            <path d="M190 122 H232" stroke="var(--casing)" stroke-width="8"/><path d="M190 122 H232" stroke="var(--w-red)" stroke-width="5"/>
+            <path d="M190 134 H232" stroke="var(--casing)" stroke-width="8"/><path d="M190 134 H232" stroke="var(--w-black)" stroke-width="5"/>
+          </g>
+          <rect x="232" y="62" width="28" height="32" rx="3" fill="var(--w-white)" stroke="var(--casing)" stroke-width="1.5"/>
+          <rect x="232" y="112" width="28" height="32" rx="3" fill="var(--w-white)" stroke="var(--casing)" stroke-width="1.5"/>
+          <g fill="none" stroke-linecap="round">
+            <path d="M260 72 H300" stroke="var(--casing)" stroke-width="8"/><path d="M260 72 H300" stroke="var(--w-blue)" stroke-width="5"/>
+            <path d="M260 84 H300" stroke="var(--casing)" stroke-width="8"/><path d="M260 84 H300" stroke="var(--w-gray)" stroke-width="5"/>
+            <path d="M260 122 H300" stroke="var(--casing)" stroke-width="8"/><path d="M260 122 H300" stroke="var(--w-yellow)" stroke-width="5"/>
+            <path d="M260 134 H300" stroke="var(--casing)" stroke-width="8"/><path d="M260 134 H300" stroke="var(--w-gray)" stroke-width="5"/>
+          </g>
+          <rect x="300" y="56" width="100" height="42" rx="8" fill="var(--motor-soft)" stroke="var(--motor)" stroke-width="2"/>
+          <text x="350" y="82" class="t-mono" text-anchor="middle">A · drive</text>
+          <rect x="300" y="106" width="100" height="42" rx="8" fill="var(--motor-soft)" stroke="var(--motor)" stroke-width="2"/>
+          <text x="350" y="132" class="t-mono" text-anchor="middle">B · steer</text>
+          <text x="20" y="190" class="t-sub">Original board: switch OFF, its sockets empty.</text>
+        </svg>
+      </div>
+    </div>
+    <ul class="rules">
+      <li><b>Switch the original board OFF and unplug the power bank's port B before moving plugs.</b> Never move plugs while a motor is powered.</li>
+      <li><b>Never join the two boards with any wire.</b> They have different batteries. The only link between them is which board the motor plugs sit in.</li>
+      <li><b>Spare cables don't fit?</b> Then cut each motor wire in the middle instead and twist-and-tape it to whichever board you're using. Slower to switch, same idea.</li>
+      <li><b>Want a flip switch later?</b> Two DPDT toggle switches (about $1 each), one per motor, can replace the plug swapping. The motor goes to the middle pins, the original board to one side, the blue driver to the other.</li>
+    </ul>
+  </section>
+  <section class="closeups">
+    <div class="panel closeup">
+      <h3>A · The Grove cable cut</h3>
+      <svg viewBox="0 0 360 230" role="img" aria-label="Grove cable: red wire cut 5 cm from the driver plug; Pi side taped, driver side stripped.">
+        <rect x="10" y="62" width="44" height="96" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+        <text x="10" y="180" class="t-mono" font-size="11">to Pi hat</text>
+        <rect x="306" y="62" width="44" height="96" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+        <text x="350" y="180" class="t-mono" text-anchor="end" font-size="11">to driver</text>
+        <g fill="none" stroke-linecap="round">
+          <path d="M54 80 H306" stroke="var(--casing)" stroke-width="10"/><path d="M54 80 H306" stroke="var(--w-yellow)" stroke-width="7"/>
+          <path d="M54 100 H306" stroke="var(--casing)" stroke-width="10"/><path d="M54 100 H306" stroke="var(--w-white)" stroke-width="7"/>
+          <path d="M54 120 H228" stroke="var(--casing)" stroke-width="10"/><path d="M54 120 H228" stroke="var(--w-red)" stroke-width="7"/>
+          <path d="M262 120 H306" stroke="var(--casing)" stroke-width="10"/><path d="M262 120 H306" stroke="var(--w-red)" stroke-width="7"/>
+          <path d="M54 140 H306" stroke="var(--casing)" stroke-width="10"/><path d="M54 140 H306" stroke="var(--w-black)" stroke-width="7"/>
+        </g>
+        <rect x="218" y="110" width="20" height="20" rx="3" fill="var(--motor)"/>
+        <path d="M250 120 H262" stroke="var(--orig)" stroke-width="4"/>
+        <text x="200" y="56" class="t-mono" fill="var(--danger)" text-anchor="middle">wire 5: tape</text>
+        <text x="290" y="56" class="t-mono" fill="var(--danger)" text-anchor="middle">6: strip</text>
+        <path d="M262 162 H306 M262 156 V168 M306 156 V168" stroke="var(--muted)" stroke-width="1.5" fill="none"/>
+        <text x="284" y="200" class="t-mono" text-anchor="middle" fill="var(--muted)">~5 cm</text>
+        <text x="150" y="200" class="t-mono" text-anchor="middle" fill="var(--muted)">rest of cable</text>
+        <text x="10" y="222" class="t-sub">pins: SCL yellow, SDA white, VCC red, GND black</text>
+      </svg>
+      <p>Only the red wire is cut. Separate it from the others with a fingernail first so you don't nick them. Yellow, white and black stay whole.</p>
+    </div>
+
+    <div class="panel closeup">
+      <h3>B · Driver power screw</h3>
+      <svg viewBox="0 0 360 230" role="img" aria-label="Power terminal: two red wires twisted into the plus screw, black into the minus screw.">
+        <rect x="90" y="40" width="180" height="70" rx="6" fill="var(--term)" stroke="var(--casing)" stroke-width="1.5"/>
+        <circle cx="140" cy="75" r="18" fill="var(--surface)" stroke="var(--casing)"/><path d="M128 75 H152" stroke="var(--ink)" stroke-width="3"/>
+        <circle cx="220" cy="75" r="18" fill="var(--surface)" stroke="var(--casing)"/><path d="M208 75 H232" stroke="var(--ink)" stroke-width="3"/>
+        <text x="140" y="30" class="t-mono" text-anchor="middle">+</text>
+        <text x="220" y="30" class="t-mono" text-anchor="middle">−</text>
+        <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M60 200 V160 L134 118 V110" stroke="var(--casing)" stroke-width="10"/><path d="M60 200 V160 L134 118 V110" stroke="var(--w-red)" stroke-width="7"/>
+          <path d="M150 200 V160 L146 118 V110" stroke="var(--casing)" stroke-width="10"/><path d="M150 200 V160 L146 118 V110" stroke="var(--w-red)" stroke-width="7"/>
+          <path d="M240 200 V160 L220 118 V110" stroke="var(--casing)" stroke-width="10"/><path d="M240 200 V160 L220 118 V110" stroke="var(--w-black)" stroke-width="7"/>
+        </g>
+        <text x="60" y="222" class="t-sub" fill="var(--ink)" text-anchor="middle">wire 6</text>
+        <text x="150" y="222" class="t-sub" fill="var(--ink)" text-anchor="middle">wire 7</text>
+        <text x="240" y="222" class="t-sub" fill="var(--ink)" text-anchor="middle">wire 8</text>
+        <text x="262" y="150" class="t-sub">twist the two</text>
+        <text x="262" y="166" class="t-sub">reds together</text>
+      </svg>
+      <p>Loosen the screw, push the twisted copper all the way in, tighten, tug gently. No bare copper should stick out. The board may label these <code>VS</code> and <code>GND</code> instead of + and −.</p>
+    </div>
+
+    <div class="panel closeup">
+      <h3>C · Opening the old USB cable</h3>
+      <svg viewBox="0 0 360 230" role="img" aria-label="Old USB cable: cut off the small end, strip outer jacket, red is +5V and black is ground, tape white and green.">
+        <rect x="10" y="94" width="56" height="36" rx="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+        <text x="38" y="150" class="t-mono" text-anchor="middle" font-size="11">USB-A</text>
+        <path d="M66 112 H180" stroke="var(--casing)" stroke-width="16" stroke-linecap="round"/>
+        <path d="M66 112 H180" stroke="var(--motor)" stroke-width="13" stroke-linecap="round"/>
+        <g fill="none" stroke-linecap="round">
+          <path d="M180 104 L330 60" stroke="var(--casing)" stroke-width="8"/><path d="M180 104 L330 60" stroke="var(--w-red)" stroke-width="5"/>
+          <path d="M180 120 L330 164" stroke="var(--casing)" stroke-width="8"/><path d="M180 120 L330 164" stroke="var(--w-black)" stroke-width="5"/>
+          <path d="M180 110 L232 100" stroke="var(--casing)" stroke-width="7"/><path d="M180 110 L232 100" stroke="var(--w-white)" stroke-width="4"/>
+          <path d="M180 114 L232 124" stroke="var(--casing)" stroke-width="7"/><path d="M180 114 L232 124" stroke="var(--w-green)" stroke-width="4"/>
+        </g>
+        <rect x="230" y="92" width="16" height="14" rx="3" fill="var(--motor)"/>
+        <rect x="230" y="118" width="16" height="14" rx="3" fill="var(--motor)"/>
+        <text x="290" y="44" class="t-mono" text-anchor="middle" fill="var(--danger)">+5 V → wire 7</text>
+        <text x="290" y="190" class="t-mono" text-anchor="middle">GND → wire 8</text>
+        <text x="254" y="116" class="t-sub">tape, unused</text>
+        <text x="10" y="222" class="t-sub">cut off the small (phone) end, strip 3 cm of jacket</text>
+      </svg>
+      <p>Any old charging cable works. Keep the big USB-A end: it plugs into the power bank's port B. Plug it in only after everything else is screwed down.</p>
+    </div>
+  </section>
+
+  <div class="cols">
+    <section class="panel">
+      <h2 style="padding:16px 18px 6px">Do it in this order</h2>
+      <ol class="steps">
+        <li><div><b>Original board: switch OFF, label, then unplug both motors.</b><span>Before unplugging, put tape on each motor plug and on the board's socket it came from: "A" for the rear drive motor, "B" for the steering motor. That's how you'll put them back for manual mode.</span></div></li>
+        <li><div><b>Pull the J4 jumper cap off the blue driver.</b><span>A small black plastic cap on two pins labelled J4. Keep it in a bag. With it off, the driver's chip runs on clean 5 V from the power bank.</span></div></li>
+        <li><div><b>Don't cut the motor plugs. Make two adapter leads.</b><span>Take two spare cables whose white plug fits the motor plugs (test-fit first). If the other end has a plug too, cut it off and strip 5 mm of each wire.</span></div></li>
+        <li><div><b>Wire 9: adapter lead A → M1.</b><span>Bare ends into the two M1 screws. Plug the rear drive motor (plug A) into its white end.</span></div></li>
+        <li><div><b>Wire 10: adapter lead B → M2.</b><span>Bare ends into the two M2 screws. Plug the steering motor (plug B) into its white end.</span></div></li>
+        <li><div><b>Cut the Grove cable's red wire (close-up A).</b><span>About 5 cm from the plug that goes into the driver. Tape the long end (wire 5). Strip the short end (wire 6).</span></div></li>
+        <li><div><b>Open the old USB cable (close-up C).</b><span>Not plugged into anything yet. Red = +5 V, black = ground. Tape white and green.</span></div></li>
+        <li><div><b>Power screw (close-up B).</b><span>Twist wire 6 and wire 7 together into <b>+</b>. Wire 8 into <b>−</b>.</span></div></li>
+        <li><div><b>Plug in the Grove cable.</b><span>Short-red end into the driver's socket. Taped-red end into a Base Hat port labelled I2C.</span></div></li>
+        <li><div><b>Plug in power.</b><span>Wire 1 (USB-C) from port A to the Pi. Then the cut USB cable into port B. The driver's power LED should light.</span></div></li>
+        <li><div><b>Test with the wheels in the air.</b><span>On the Pi: <code>i2cdetect -y 1</code> should list <code>0f</code>. Then <code>python3 calibrate.py wiggle</code>: rear wheels spin, front wheels turn left then right.</span></div></li>
+      </ol>
+    </section>
+
+    <div class="side">
+      <section class="panel box">
+        <h2>Check before plugging in power</h2>
+        <ul>
+          <li>Taped red end (wire 5) touches nothing.</li>
+          <li>Both reds in <b>+</b>, black in <b>−</b>. Not swapped.</li>
+          <li>J4 cap is off.</li>
+          <li>No loose copper strands bridging two screws.</li>
+          <li>Motor wires clear of wheels and gears.</li>
+          <li>Original board switched OFF (in Pi mode).</li>
+        </ul>
+      </section>
+      <section class="panel box">
+        <h2>If something's off</h2>
+        <ul>
+          <li><b>Driver LED dark:</b> port B isn't giving power. Try the other port or another cable; check red and black are in the right screws.</li>
+          <li><b>No <code>0f</code> in i2cdetect:</b> Grove cable in a non-I2C port, or the driver is unpowered. Press the driver's reset button and try again.</li>
+          <li><b>Pi reboots when the motors start:</b> the power bank can't handle both. Use a bigger bank, or two banks (one for the Pi, one for the driver).</li>
+          <li><b>Car goes backwards:</b> set <code>"invert_drive": true</code> in <code>car_config.json</code>.</li>
+          <li><b>Steers the wrong way:</b> set <code>"invert": true</code> under steering.</li>
+        </ul>
+      </section>
+      <section class="panel box">
+        <h2>Only one USB port?</h2>
+        <p>Plug the cut USB cable (wires 7 and 8) into one of the Pi's own USB-A ports instead of port B. It can work for small toy motors, but if the Pi reboots under load you'll need a second power bank.</p>
+      </section>
+    </div>
+  </div>
+</div>

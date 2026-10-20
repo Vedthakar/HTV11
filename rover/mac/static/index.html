@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RC Path Drawer</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --ink: #1b1f24; --muted: #6b7280; --line: #e3e6ea;
+    --grid: #eceef1; --raw: #c3c8cf; --plan: #2563eb; --sim: #f97316; --ok: #16a34a; --bad: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --panel: #171a20; --ink: #e6e8eb; --muted: #9aa1ab; --line: #2a2f37;
+            --grid: #1f232a; --raw: #4b525c; --plan: #60a5fa; --sim: #fb923c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: var(--bg); color: var(--ink); }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel);
+           display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 16px; margin: 0; }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: var(--grid); color: var(--muted); }
+  .pill.ok { color: var(--ok); } .pill.bad { color: var(--bad); }
+  main { display: grid; grid-template-columns: 1fr 300px; gap: 16px; padding: 16px; max-width: 1300px; margin: auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  canvas { width: 100%; aspect-ratio: 4 / 3; display: block; border-radius: 8px; touch-action: none;
+           cursor: crosshair; background: var(--panel); }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input, select { width: 100%; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px;
+                  background: var(--bg); color: var(--ink); font: inherit; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg);
+           color: var(--ink); font: inherit; cursor: pointer; }
+  button.primary { background: var(--plan); border-color: var(--plan); color: white; width: 100%; margin-top: 12px; font-weight: 600; }
+  button.danger { background: var(--bad); border-color: var(--bad); color: white; width: 100%; margin-top: 8px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .stats { font-variant-numeric: tabular-nums; font-size: 13px; }
+  .stats div { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .warn { color: var(--bad); font-size: 12px; margin-top: 8px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 4px; }
+  #msg { font-size: 12px; margin-top: 8px; color: var(--muted); white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header>
+  <h1>RC Path Drawer</h1>
+  <span id="piPill" class="pill">Pi: checking…</span>
+</header>
+<main>
+  <div class="card">
+    <canvas id="cv" width="1200" height="900"></canvas>
+    <div class="legend">
+      <span><i style="background:var(--raw)"></i>your drawing</span>
+      <span><i style="background:var(--plan)"></i>smoothed path</span>
+      <span><i style="background:var(--sim)"></i>simulated car</span>
+      <span>▲ start position &amp; direction</span>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="row">
+        <button id="clear">Clear</button>
+        <button data-shape="circle">Circle</button>
+        <button data-shape="eight">Figure 8</button>
+        <button data-shape="square">Square</button>
+      </div>
+      <label>Floor area width (metres across the canvas)</label>
+      <input id="area" type="number" value="3" min="0.5" max="20" step="0.5">
+      <label>Speed: <span id="speedVal">60%</span></label>
+      <input id="speed" type="range" min="10" max="100" value="60">
+      <label>Start trigger</label>
+      <select id="trigger">
+        <option value="unplug">When I unplug the cable</option>
+        <option value="delay">After a countdown</option>
+        <option value="now">Immediately (car on blocks!)</option>
+      </select>
+      <label>Delay before driving (seconds)</label>
+      <input id="delay" type="number" value="5" min="0" max="60">
+      <label>Pi address</label>
+      <input id="pi" value="raspberrypi.local:8080">
+      <button id="upload" class="primary" disabled>Upload to car</button>
+      <button id="stop" class="danger">Stop / disarm</button>
+      <div id="msg"></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="stats" id="stats"><div><span>Draw a path to start</span></div></div>
+      <div id="warn" class="warn"></div>
+    </div>
+  </div>
+</main>
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const $ = id => document.getElementById(id);
+let raw = [], plan = null, anim = null, drawing = false;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const mPerPx = () => parseFloat($('area').value) / cv.width;
+const toM = ([x, y]) => [x * mPerPx(), (cv.height - y) * mPerPx()];      // y up, metres
+const toPx = ([x, y]) => [x / mPerPx(), cv.height - y / mPerPx()];
+
+function evPt(e) {
+  const r = cv.getBoundingClientRect();
+  return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height];
+}
+cv.addEventListener('pointerdown', e => { drawing = true; raw = [evPt(e)]; plan = null; cv.setPointerCapture(e.pointerId); render(); });
+cv.addEventListener('pointermove', e => { if (drawing) { raw.push(evPt(e)); render(); } });
+cv.addEventListener('pointerup', () => { if (drawing) { drawing = false; preview(); } });
+
+$('clear').onclick = () => { raw = []; plan = null; $('upload').disabled = true; $('stats').innerHTML = '<div><span>Draw a path to start</span></div>'; $('warn').textContent=''; render(); };
+document.querySelectorAll('[data-shape]').forEach(b => b.onclick = () => {
+  const cx = cv.width / 2, cy = cv.height / 2, R = cv.height * 0.3, pts = [];
+  const s = b.dataset.shape;
+  if (s === 'square') {
+    const c = [[-1,-1],[1,-1],[1,1],[-1,1],[-1,-1]];
+    for (let i = 0; i < 4; i++) for (let t = 0; t < 1; t += 0.02)
+      pts.push([cx + R * (c[i][0] + (c[i+1][0]-c[i][0]) * t), cy + R * (c[i][1] + (c[i+1][1]-c[i][1]) * t)]);
+    pts.push([cx - R, cy - R]);
+  } else {
+    for (let a = 0; a <= Math.PI * 2 + 1e-9; a += Math.PI / 90)
+      pts.push(s === 'circle' ? [cx + R * Math.sin(a), cy + R * Math.cos(a)]
+                              : [cx + 1.3 * R * Math.sin(a), cy + 0.9 * R * Math.sin(2 * a)]);
+  }
+  raw = pts; preview();
+});
+$('speed').oninput = () => { $('speedVal').textContent = $('speed').value + '%'; };
+$('speed').onchange = () => raw.length && preview();
+$('area').onchange = () => raw.length && preview();
+
+function body(extra) {
+  return JSON.stringify(Object.assign({ pi: $('pi').value, points_m: raw.map(toM),
+    speed_scale: $('speed').value / 100 }, extra));
+}
+async function post(url, extra) {
+  const r = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: body(extra) });
+  return [r.ok, await r.json()];
+}
+
+async function preview() {
+  if (raw.length < 2) return;
+  const [ok, res] = await post('/api/plan');
+  if (!ok) { $('warn').textContent = res.error; plan = null; $('upload').disabled = true; render(); return; }
+  plan = res; $('upload').disabled = false;
+  $('stats').innerHTML = [
+    ['Path length', res.length_m.toFixed(2) + ' m'], ['Drive time', res.duration_s.toFixed(1) + ' s'],
+    ['Car type', res.drive_type], ['Start heading', res.start.heading_deg + '°'],
+    ['Sim error (ideal)', (res.max_sim_error_m * 100).toFixed(1) + ' cm'],
+    ['Config from', res.config_source === 'pi' ? 'Pi' : 'local file'],
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  $('warn').textContent = res.warnings.join('\n');
+  animate();
+}
+
+function line(pts, color, w, dash) {
+  if (pts.length < 2) return;
+  ctx.strokeStyle = color; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.lineJoin = ctx.lineCap = 'round';
+  ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.stroke(); ctx.setLineDash([]);
+}
+function drawCar(xy, heading, color) {
+  const [x, y] = toPx(xy), len = 0.25 / mPerPx(), wid = 0.15 / mPerPx();
+  ctx.save(); ctx.translate(x, y); ctx.rotate(-heading);
+  ctx.fillStyle = color; ctx.globalAlpha = 0.9;
+  ctx.fillRect(-len / 2, -wid / 2, len, wid);
+  ctx.fillStyle = 'white'; ctx.beginPath(); ctx.moveTo(len/2 - 2, 0); ctx.lineTo(len/2 - wid*0.6, -wid*0.3); ctx.lineTo(len/2 - wid*0.6, wid*0.3); ctx.fill();
+  ctx.restore();
+}
+function render(simUpTo) {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const step = 0.5 / mPerPx();   // grid every 0.5 m
+  ctx.strokeStyle = css('--grid'); ctx.lineWidth = 1;
+  for (let x = 0; x < cv.width; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cv.height); ctx.stroke(); }
+  for (let y = cv.height; y > 0; y -= step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cv.width, y); ctx.stroke(); }
+  ctx.fillStyle = css('--muted'); ctx.font = '20px sans-serif'; ctx.fillText('grid = 0.5 m', 10, 26);
+  line(raw, css('--raw'), 6);
+  if (!plan) return;
+  line(plan.smoothed.map(toPx), css('--plan'), 3);
+  const sim = plan.sim.slice(0, simUpTo ?? plan.sim.length);
+  line(sim.map(toPx), css('--sim'), 3, [10, 8]);
+  drawCar([plan.start.x, plan.start.y], plan.start.heading_deg * Math.PI / 180, css('--ok'));
+  if (sim.length > 1) {
+    const b = sim[sim.length - 1];
+    let i = sim.length - 2;
+    while (i > 0 && Math.hypot(sim[i][0] - b[0], sim[i][1] - b[1]) < 0.005) i--;  // skip stopped samples
+    const a = sim[i];
+    drawCar(b, Math.atan2(b[1] - a[1], b[0] - a[0]), css('--sim'));
+  }
+}
+function animate() {
+  cancelAnimationFrame(anim);
+  const t0 = performance.now(), n = plan.sim.length, dur = plan.duration_s * 1000;
+  const tick = now => {
+    const k = Math.min(n, Math.max(2, Math.floor((now - t0) / dur * n)));
+    render(k); if (k < n) anim = requestAnimationFrame(tick);
+  };
+  anim = requestAnimationFrame(tick);
+}
+
+$('upload').onclick = async () => {
+  $('upload').disabled = true; $('msg').textContent = 'Uploading…';
+  const [ok, res] = await post('/api/upload', { trigger: { mode: $('trigger').value, delay_s: parseFloat($('delay').value) } });
+  $('upload').disabled = false;
+  if (!ok) { $('msg').textContent = '✗ ' + res.error; return; }
+  const t = res.trigger;
+  $('msg').textContent = '✓ Uploaded. ' + (t.mode === 'unplug'
+    ? `Unplug the cable, set the car down at the green marker facing ${res.start.heading_deg}°. It starts ${t.delay_s}s after unplug.`
+    : t.mode === 'delay' ? `Starting in ${t.delay_s}s.` : 'Running now.')
+    + (res.warnings.length ? '\n' + res.warnings.join('\n') : '');
+};
+$('stop').onclick = async () => { const [ok, res] = await post('/api/stop'); $('msg').textContent = ok ? 'Stopped & disarmed.' : '✗ ' + res.error; };
+
+async function poll() {
+  try {
+    const [ok, s] = await post('/api/status');
+    $('piPill').className = 'pill ' + (ok ? 'ok' : 'bad');
+    $('piPill').textContent = ok ? `Pi: ${s.state}${s.detail ? ' · ' + s.detail : ''}${s.mock_motors ? ' (mock motors)' : ''}` : 'Pi: not connected (preview still works)';
+  } catch { $('piPill').className = 'pill bad'; $('piPill').textContent = 'Pi: UI server down'; }
+}
+setInterval(poll, 2000); poll(); render();
+</script>
+</body>
+</html>

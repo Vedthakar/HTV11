@@ -21,3 +21,6 @@ data/lota_watch.json
 
 # Download locally with scripts/install_brush.py
 tools/brush_app
+
+# Rover car: compiled C binary
+rover/straight/drive_straight

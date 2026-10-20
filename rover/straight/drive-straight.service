@@ -1,0 +1,11 @@
+[Unit]
+Description=RC car: drive straight after the Ethernet cable is unplugged
+After=multi-user.target
+
+[Service]
+# Edit --channel / --speed / --reverse here after running `drive_straight --test`.
+ExecStart=/usr/local/bin/drive_straight --wait-unplug --iface eth0 --delay 5 --channel 1 --speed 90
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

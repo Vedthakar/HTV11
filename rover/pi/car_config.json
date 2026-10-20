@@ -1,0 +1,63 @@
+{
+  "motor_driver": "grove_i2c",
+  "_motor_driver_options": "grove_i2c = Seeed Grove I2C Motor Driver on the Base Hat (M1/M2). gpio = L298N/TB6612 on GPIO pins.",
+  "i2c": {
+    "bus": 1,
+    "address": 15
+  },
+  "channels": {
+    "drive": "M1",
+    "steer": "M2",
+    "left": "M1",
+    "right": "M2"
+  },
+  "drive": "ackermann",
+  "_drive_options": "differential = left/right motors (tank style). ackermann = one drive motor + steering front wheels.",
+  "max_speed_mps": 1.0,
+  "track_width_m": 0.14,
+  "wheelbase_m": 0.2,
+  "max_steer_deg": 25,
+  "cruise_fraction": 0.4,
+  "max_accel_mps2": 0.8,
+  "max_lat_accel_mps2": 1.5,
+  "smoothing_m": 0.03,
+  "control_hz": 50,
+  "deadband": 0.35,
+  "left_trim": 1.0,
+  "right_trim": 1.0,
+  "pins": {
+    "_comment": "BCM GPIO numbers. L298N/TB6612: forward=IN1, backward=IN2, enable=ENA/PWMA (PWM).",
+    "left": {
+      "forward": 17,
+      "backward": 27,
+      "enable": 12
+    },
+    "right": {
+      "forward": 23,
+      "backward": 24,
+      "enable": 13
+    },
+    "drive_motor": {
+      "forward": 17,
+      "backward": 27,
+      "enable": 12
+    },
+    "steering": {
+      "type": "dc",
+      "pin": 18,
+      "center": 0.0,
+      "invert": false,
+      "_dc_type": "for a toy-car DC steering motor use type=dc with forward/backward/enable pins",
+      "forward": 23,
+      "backward": 24,
+      "enable": 13,
+      "dc_power": 1.0,
+      "dc_hold_ticks": 5
+    }
+  },
+  "invert_left": false,
+  "invert_right": false,
+  "invert_drive": false,
+  "start_delay_s": 5,
+  "max_run_s": 120
+}
